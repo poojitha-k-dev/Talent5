@@ -10,3 +10,5 @@ yarn-error.log*
 *.pem
 public/uploads/*
 !public/uploads/.gitkeep
+apps/web/public/media/*.mp3
+!apps/web/public/media/.gitkeep
