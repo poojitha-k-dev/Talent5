@@ -2,7 +2,7 @@
 // TALENT5 SERVICE WORKER (PWA & OFFLINE CACHE)
 // ==========================================
 
-const CACHE_NAME = 'talent5-cache-v2';
+const CACHE_NAME = 'talent5-cache-v3';
 const STATIC_ASSETS = [
   '/',
   '/home',
@@ -22,13 +22,14 @@ self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
 
-// Activate Event (Cache Purge)
+// Activate Event (Purge all older caches immediately)
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
           if (key !== CACHE_NAME) {
+            console.log('[SW] Purging old cache:', key);
             return caches.delete(key);
           }
         })
@@ -43,8 +44,19 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET requests and WebSocket/Admin endpoints
-  if (request.method !== 'GET' || url.pathname.startsWith('/api/v1/admin') || url.pathname.startsWith('/api/v1/webhooks')) {
+  // Strictly skip media streaming, uploads, admin routes, webhooks, and HMR
+  if (
+    request.method !== 'GET' ||
+    url.pathname.startsWith('/api/v1/media') ||
+    url.pathname.startsWith('/api/v1/admin') ||
+    url.pathname.startsWith('/api/v1/webhooks') ||
+    url.pathname.startsWith('/_next/webpack-hmr')
+  ) {
+    return;
+  }
+
+  // Range requests (audio scrubbing) MUST bypass service worker cache completely
+  if (request.headers.get('range')) {
     return;
   }
 
@@ -60,6 +72,18 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => caches.match(request).then((res) => res || caches.match('/home')))
+    );
+    return;
+  }
+
+  // Next.js static chunks in dev: Network-first to prevent serving stale client components
+  if (url.pathname.startsWith('/_next/')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          return response;
+        })
+        .catch(() => caches.match(request))
     );
     return;
   }
@@ -84,7 +108,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static Assets & App Shell: Cache-First with Network Fallback
+  // Static Assets (images, fonts): Cache-first with network fallback
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;

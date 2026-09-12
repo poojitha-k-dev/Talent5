@@ -89,7 +89,8 @@ export const GlobalPlayer: React.FC = () => {
 
   if (!currentSong) return null;
 
-  const progressPercent = duration > 0 ? (currentTime / duration) * 100 : 0;
+  const effectiveDuration = duration > 0 ? duration : (currentSong.durationSeconds || 0);
+  const progressPercent = effectiveDuration > 0 ? (currentTime / effectiveDuration) * 100 : 0;
 
   return (
     <>
@@ -220,14 +221,14 @@ export const GlobalPlayer: React.FC = () => {
                 <input
                   type="range"
                   min={0}
-                  max={duration || 100}
+                  max={effectiveDuration || 100}
                   step={0.1}
                   value={currentTime}
                   onChange={(e) => seek(parseFloat(e.target.value))}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 />
               </div>
-              <span className="w-8 font-mono">{formatDuration(duration)}</span>
+              <span className="w-8 font-mono">{formatDuration(effectiveDuration)}</span>
             </div>
           </div>
 
