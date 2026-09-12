@@ -1,0 +1,16 @@
+{
+  "name": "@talent5/ui",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w"
+  },
+  "dependencies": {
+    "@talent5/types": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

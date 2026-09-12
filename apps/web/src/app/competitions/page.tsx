@@ -1,0 +1,105 @@
+'use client';
+
+import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { Award, Trophy, Calendar, Sparkles, CheckCircle2, ChevronRight } from 'lucide-react';
+import { formatINR } from '@talent5/utils';
+import { Button } from '@/components/ui/Button';
+
+export default function CompetitionsPage() {
+  const [competitions, setCompetitions] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    fetch('/api/v1/competitions')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.data) setCompetitions(d.data);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      {/* Header */}
+      <div className="text-center max-w-2xl mx-auto space-y-3">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30">
+          <Trophy className="w-3.5 h-3.5 text-amber-400" />
+          <span>Talent5 Tournaments</span>
+        </div>
+        <h1 className="text-3xl sm:text-5xl font-extrabold font-display text-white">
+          Nationwide Music Challenges
+        </h1>
+        <p className="text-xs sm:text-sm text-gray-400">
+          Compete in nationwide independent music challenges. Winners receive cash prizes paid directly to UPI wallets and prominent spotlight features.
+        </p>
+      </div>
+
+      {/* Competitions Grid */}
+      {loading ? (
+        <div className="py-20 flex flex-col items-center justify-center">
+          <div className="w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full animate-spin mb-2" />
+          <p className="text-xs text-gray-400">Loading Tournaments...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {competitions.map((comp) => (
+            <div
+              key={comp.id}
+              className="glass-panel rounded-3xl overflow-hidden border border-amber-500/20 flex flex-col justify-between shadow-card group"
+            >
+              <div className="relative aspect-[21/9] bg-midnight-900 overflow-hidden">
+                <img
+                  src={comp.coverUrl}
+                  alt={comp.title}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute top-4 left-4">
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500 text-midnight-950 shadow-saffronGlow uppercase tracking-wider">
+                    Prize: {formatINR(parseFloat(comp.prizeINR))}
+                  </span>
+                </div>
+                <div className="absolute top-4 right-4">
+                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-black/70 text-emerald-400 border border-emerald-500/30 uppercase">
+                    {comp.status}
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4 flex-1 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold font-display text-white">{comp.title}</h2>
+                  <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+                    {comp.description}
+                  </p>
+
+                  <div className="pt-2 space-y-1 text-xs text-gray-400">
+                    <p>
+                      <strong className="text-gray-300">Eligible Languages:</strong>{' '}
+                      {comp.eligibleLanguages?.join(', ') || 'All Indian Languages'}
+                    </p>
+                    <p>
+                      <strong className="text-gray-300">Timeline:</strong> {comp.startDate} to {comp.endDate}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/10 flex items-center justify-between">
+                  <span className="text-xs text-gray-400">
+                    {comp.entriesCount || 0} Registered Entries
+                  </span>
+                  <Link href="/creator-studio/apply">
+                    <Button variant="primary" size="md" className="font-bold text-midnight-950">
+                      Enter Challenge
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
