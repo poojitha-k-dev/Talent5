@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  # 1. Primary PostgreSQL 16 Relational Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: talent5_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: talent5_v1
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./infrastructure/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./infrastructure/database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d talent5_v1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Next.js Web App & API Service
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: talent5_web
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/talent5_v1
+      JWT_SECRET: talent5_super_secure_jwt_secret_key_2026_desi_music_platform_ultra
+      JWT_EXPIRATION: 7d
+      STORAGE_DRIVER: local
+      STORAGE_LOCAL_DIR: ./public/uploads
+      PAYMENT_WEBHOOK_SECRET: talent5_live_webhook_secret_2026_instant_upi
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads_data:/app/apps/web/public/uploads
+
+  # 3. Nginx Edge Reverse Proxy & Cache
+  nginx:
+    image: nginx:alpine
+    container_name: talent5_nginx
+    restart: unless-stopped
+    depends_on:
+      - web
+    ports:
+      - "80:80"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - uploads_data:/var/www/uploads:ro
+
+volumes:
+  pgdata:
+    driver: local
+  uploads_data:
+    driver: local

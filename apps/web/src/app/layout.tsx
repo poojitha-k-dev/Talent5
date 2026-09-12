@@ -5,11 +5,14 @@ import { AudioProvider } from '@/context/AudioContext';
 import { Navbar } from '@/components/layout/Navbar';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { GlobalPlayer } from '@/components/player/GlobalPlayer';
+import { PWAInstallPrompt } from '@/components/ui/PWAInstallPrompt';
 
 export const metadata: Metadata = {
   title: 'Talent5 — Real Voices. Original Stories. Desi Talent.',
   description:
     'India’s premier music discovery, streaming, independent creator, and talent platform celebrating Desi voices across 13 Indian languages.',
+  manifest: '/manifest.json',
+  themeColor: '#060609',
   keywords: [
     'Indian music',
     'Desi music',
@@ -38,6 +41,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="dark">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#060609" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+      </head>
       <body className="bg-midnight-950 text-gray-100 min-h-screen flex flex-col antialiased selection:bg-amber-500 selection:text-midnight-950">
         <AuthProvider>
           <AudioProvider>
@@ -45,6 +54,7 @@ export default function RootLayout({
             <main className="flex-1 pb-28 sm:pb-24">{children}</main>
             <MobileNav />
             <GlobalPlayer />
+            <PWAInstallPrompt />
           </AudioProvider>
         </AuthProvider>
       </body>

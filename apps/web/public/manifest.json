@@ -1,0 +1,46 @@
+{
+  "name": "Talent5 — Real Voices. Original Stories. Desi Talent.",
+  "short_name": "Talent5",
+  "description": "Indian music streaming, independent creator discovery, talent tournaments, and AI singing studio.",
+  "start_url": "/home",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#060609",
+  "theme_color": "#060609",
+  "categories": ["music", "entertainment", "audio"],
+  "icons": [
+    {
+      "src": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=192",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=512",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Desi Originals Hub",
+      "short_name": "Desi Hub",
+      "description": "Grassroots Indian independent music & video singles",
+      "url": "/desi",
+      "icons": [{ "src": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=96", "sizes": "96x96" }]
+    },
+    {
+      "name": "AI Singing Lab",
+      "short_name": "Singing Lab",
+      "description": "Sing with synchronized backing tracks and AI vocal scoring",
+      "url": "/karaoke",
+      "icons": [{ "src": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=96", "sizes": "96x96" }]
+    },
+    {
+      "name": "Music Tournaments",
+      "short_name": "Tournaments",
+      "description": "Nationwide music challenges & live voting",
+      "url": "/competitions",
+      "icons": [{ "src": "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=96", "sizes": "96x96" }]
+    }
+  ]
+}
