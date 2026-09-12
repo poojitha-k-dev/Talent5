@@ -133,7 +133,7 @@ export default function CompetitionDetailPage() {
       audioUrl: entry.audioUrl,
       artworkUrl: entry.artworkUrl,
       durationSeconds: 210,
-    });
+    } as any);
   };
 
   const openSubmitModal = async () => {

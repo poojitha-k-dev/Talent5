@@ -15,7 +15,7 @@ export function signToken(payload: { id: string; email: string; roles: UserRole[
       username: payload.username,
     },
     JWT_SECRET,
-    { expiresIn: JWT_EXPIRATION }
+    { expiresIn: (JWT_EXPIRATION as any) || '7d' }
   );
 }
 
