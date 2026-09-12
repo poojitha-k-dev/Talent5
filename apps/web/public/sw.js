@@ -2,7 +2,7 @@
 // TALENT5 SERVICE WORKER (PWA & OFFLINE CACHE)
 // ==========================================
 
-const CACHE_NAME = 'talent5-cache-v1';
+const CACHE_NAME = 'talent5-cache-v2';
 const STATIC_ASSETS = [
   '/',
   '/home',
@@ -48,6 +48,22 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // HTML pages: Network-first, fallback to cache
+  if (request.headers.get('accept')?.includes('text/html')) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.status === 200) {
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(request, responseToCache));
+          }
+          return response;
+        })
+        .catch(() => caches.match(request).then((res) => res || caches.match('/home')))
+    );
+    return;
+  }
+
   // API Requests: Stale-While-Revalidate
   if (url.pathname.startsWith('/api/v1/catalog') || url.pathname.startsWith('/api/v1/desi')) {
     event.respondWith(
@@ -85,7 +101,6 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
-          // If offline and requesting an HTML page, return cached home
           if (request.headers.get('accept')?.includes('text/html')) {
             return caches.match('/home');
           }

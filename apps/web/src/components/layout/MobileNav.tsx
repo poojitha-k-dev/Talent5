@@ -17,7 +17,7 @@ export const MobileNav: React.FC = () => {
   ];
 
   return (
-    <nav className="sm:hidden fixed bottom-16 left-0 right-0 z-30 bg-midnight-950/90 backdrop-blur-xl border-t border-white/10 px-2 py-1 flex items-center justify-around">
+    <nav className="sm:hidden fixed bottom-16 left-0 right-0 z-30 bg-white/90 dark:bg-midnight-950/90 backdrop-blur-xl border-t border-amber-500/20 dark:border-white/10 px-2 py-1 flex items-center justify-around transition-colors duration-300">
       {items.map((item) => {
         const Icon = item.icon;
         const isActive = pathname === item.href;
@@ -26,7 +26,9 @@ export const MobileNav: React.FC = () => {
             key={item.name}
             href={item.href}
             className={`flex flex-col items-center py-1 px-3 text-[10px] font-medium transition-colors ${
-              isActive ? 'text-amber-400' : 'text-gray-400 hover:text-white'
+              isActive
+                ? 'text-amber-600 dark:text-amber-400 font-bold'
+                : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             <Icon className="w-4 h-4 mb-0.5" />

@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: 'class',
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -9,6 +10,13 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        ivory: {
+          50: '#FCFBF9',
+          100: '#FAF8F5',
+          200: '#F4EFE6',
+          300: '#E8E0D1',
+          400: '#D6C9B0',
+        },
         midnight: {
           950: '#060609',
           900: '#0B0C10',

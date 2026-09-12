@@ -93,11 +93,11 @@ export const GlobalPlayer: React.FC = () => {
 
   return (
     <>
-      <aside aria-label="Persistent Audio Player" className="fixed bottom-0 left-0 right-0 z-40 bg-midnight-950/95 backdrop-blur-2xl border-t border-white/10 px-4 sm:px-6 py-2.5 shadow-[0_-10px_30px_rgba(0,0,0,0.8)]">
+      <aside aria-label="Persistent Audio Player" className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-midnight-950/95 backdrop-blur-2xl border-t border-amber-500/20 dark:border-white/10 px-4 sm:px-6 py-2.5 shadow-[0_-10px_30px_rgba(217,119,6,0.08)] dark:shadow-[0_-10px_30px_rgba(0,0,0,0.8)] transition-colors duration-300">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           {/* 1. Track Info */}
           <div className="flex items-center gap-3 w-full sm:w-1/4 min-w-0">
-            <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-midnight-800 flex-shrink-0 shadow-md">
+            <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-200 dark:bg-midnight-800 flex-shrink-0 shadow-md">
               {currentSong.artworkUrl ? (
                 <img
                   src={currentSong.artworkUrl}
@@ -123,18 +123,18 @@ export const GlobalPlayer: React.FC = () => {
               <div className="flex items-center gap-1.5">
                 <Link
                   href={`/music/${currentSong.slug || currentSong.id}`}
-                  className="text-sm font-semibold text-white hover:text-amber-400 truncate block transition-colors"
+                  className="text-sm font-semibold text-slate-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 truncate block transition-colors"
                 >
                   {currentSong.title}
                 </Link>
                 <span
                   title="Verified Rights Cleared"
-                  className="flex items-center text-emerald-400 flex-shrink-0"
+                  className="flex items-center text-emerald-600 dark:text-emerald-400 flex-shrink-0"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
                 </span>
               </div>
-              <p className="text-xs text-gray-400 truncate">
+              <p className="text-xs text-slate-500 dark:text-gray-400 truncate">
                 {currentSong.artistName || 'Talent5 Artist'}
               </p>
             </div>
@@ -143,7 +143,7 @@ export const GlobalPlayer: React.FC = () => {
               onClick={handleLike}
               title="Like & Support Creator"
               className={`p-2 rounded-full transition-all flex items-center gap-1 flex-shrink-0 ${
-                isLiked ? 'text-rose-500' : 'text-gray-400 hover:text-rose-400'
+                isLiked ? 'text-rose-500' : 'text-slate-400 hover:text-rose-500 dark:text-gray-400 dark:hover:text-rose-400'
               }`}
             >
               <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
@@ -158,7 +158,7 @@ export const GlobalPlayer: React.FC = () => {
                 onClick={toggleShuffle}
                 title="Shuffle"
                 className={`p-1.5 transition-colors ${
-                  isShuffle ? 'text-amber-400' : 'text-gray-400 hover:text-white'
+                  isShuffle ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 hover:text-slate-700 dark:text-gray-400 dark:hover:text-white'
                 }`}
               >
                 <Shuffle className="w-4 h-4" />
@@ -167,7 +167,7 @@ export const GlobalPlayer: React.FC = () => {
               <button
                 onClick={prevTrack}
                 title="Previous"
-                className="p-1.5 text-gray-300 hover:text-white transition-colors"
+                className="p-1.5 text-slate-600 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white transition-colors"
               >
                 <SkipBack className="w-4 h-4" />
               </button>
@@ -187,7 +187,7 @@ export const GlobalPlayer: React.FC = () => {
               <button
                 onClick={nextTrack}
                 title="Next"
-                className="p-1.5 text-gray-300 hover:text-white transition-colors"
+                className="p-1.5 text-slate-600 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white transition-colors"
               >
                 <SkipForward className="w-4 h-4" />
               </button>
@@ -196,7 +196,7 @@ export const GlobalPlayer: React.FC = () => {
                 onClick={toggleRepeat}
                 title={`Repeat: ${repeatMode}`}
                 className={`p-1.5 transition-colors ${
-                  repeatMode !== 'off' ? 'text-amber-400' : 'text-gray-400 hover:text-white'
+                  repeatMode !== 'off' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 hover:text-slate-700 dark:text-gray-400 dark:hover:text-white'
                 }`}
               >
                 {repeatMode === 'one' ? (
@@ -208,10 +208,10 @@ export const GlobalPlayer: React.FC = () => {
             </div>
 
             {/* Seek Bar */}
-            <div className="w-full flex items-center gap-2 text-[11px] text-gray-400 select-none">
+            <div className="w-full flex items-center gap-2 text-[11px] text-slate-500 dark:text-gray-400 select-none">
               <span className="w-8 text-right font-mono">{formatDuration(currentTime)}</span>
               <div className="flex-1 relative flex items-center group cursor-pointer py-1">
-                <div className="w-full h-1 bg-white/15 rounded-full overflow-hidden">
+                <div className="w-full h-1 bg-slate-200 dark:bg-white/15 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full"
                     style={{ width: `${progressPercent}%` }}
@@ -236,7 +236,7 @@ export const GlobalPlayer: React.FC = () => {
             <button
               onClick={() => setIsLyricsOpen(true)}
               title="Synchronized Lyrics"
-              className="p-2 text-gray-400 hover:text-amber-400 transition-colors rounded-full hover:bg-white/5"
+              className="p-2 text-slate-400 hover:text-amber-600 dark:text-gray-400 dark:hover:text-amber-400 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-white/5"
             >
               <FileText className="w-4 h-4" />
             </button>
@@ -244,7 +244,7 @@ export const GlobalPlayer: React.FC = () => {
             <button
               onClick={() => setIsQueueOpen(true)}
               title="Play Queue"
-              className="p-2 text-gray-400 hover:text-amber-400 transition-colors rounded-full hover:bg-white/5"
+              className="p-2 text-slate-400 hover:text-amber-600 dark:text-gray-400 dark:hover:text-amber-400 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-white/5"
             >
               <ListMusic className="w-4 h-4" />
             </button>
@@ -253,7 +253,7 @@ export const GlobalPlayer: React.FC = () => {
               <button
                 onClick={toggleMute}
                 title={isMuted ? 'Unmute' : 'Mute'}
-                className="text-gray-400 hover:text-white"
+                className="text-slate-400 hover:text-slate-700 dark:text-gray-400 dark:hover:text-white"
               >
                 {isMuted || volume === 0 ? (
                   <VolumeX className="w-4 h-4" />
@@ -268,7 +268,7 @@ export const GlobalPlayer: React.FC = () => {
                 step={0.01}
                 value={isMuted ? 0 : volume}
                 onChange={(e) => setVolume(parseFloat(e.target.value))}
-                className="w-20 h-1 bg-white/20 accent-amber-500 rounded-full cursor-pointer"
+                className="w-20 h-1 bg-slate-200 dark:bg-white/20 accent-amber-500 rounded-full cursor-pointer"
               />
             </div>
           </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { AudioProvider } from '@/context/AudioContext';
 import { Navbar } from '@/components/layout/Navbar';
@@ -12,7 +13,6 @@ export const metadata: Metadata = {
   description:
     'India’s premier music discovery, streaming, independent creator, and talent platform celebrating Desi voices across 13 Indian languages.',
   manifest: '/manifest.json',
-  themeColor: '#060609',
   keywords: [
     'Indian music',
     'Desi music',
@@ -40,23 +40,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en" className="dark" suppressHydrationWarning>
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#060609" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className="bg-midnight-950 text-gray-100 min-h-screen flex flex-col antialiased selection:bg-amber-500 selection:text-midnight-950">
-        <AuthProvider>
-          <AudioProvider>
-            <Navbar />
-            <main className="flex-1 pb-28 sm:pb-24">{children}</main>
-            <MobileNav />
-            <GlobalPlayer />
-            <PWAInstallPrompt />
-          </AudioProvider>
-        </AuthProvider>
+      <body className="bg-[var(--bg-primary)] text-[var(--text-primary)] min-h-screen flex flex-col antialiased selection:bg-amber-500 selection:text-midnight-950 transition-colors duration-300">
+        <ThemeProvider>
+          <AuthProvider>
+            <AudioProvider>
+              <Navbar />
+              <main className="flex-1 pb-28 sm:pb-24">{children}</main>
+              <MobileNav />
+              <GlobalPlayer />
+              <PWAInstallPrompt />
+            </AudioProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
