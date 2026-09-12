@@ -355,30 +355,6 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
-
-      {/* 8. FOOTER */}
-      <footer className="py-12 px-4 sm:px-6 lg:px-8 border-t border-amber-500/15 dark:border-white/5 text-xs text-slate-500 dark:text-gray-400 bg-white/60 dark:bg-midnight-950">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-lg bg-amber-500 flex items-center justify-center text-slate-950 font-bold font-display text-xs">
-              T5
-            </div>
-            <span className="font-bold text-slate-900 dark:text-white font-display">TALENT5</span>
-            <span className="text-slate-500 dark:text-gray-400">• Real Voices. Original Stories. Desi Talent.</span>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-6 text-slate-600 dark:text-gray-400">
-            <Link href="/home" className="hover:text-amber-600 dark:hover:text-white transition-colors">Discover</Link>
-            <Link href="/music" className="hover:text-amber-600 dark:hover:text-white transition-colors">Music</Link>
-            <Link href="/desi" className="hover:text-amber-600 dark:hover:text-white transition-colors">Desi Hub</Link>
-            <Link href="/karaoke" className="hover:text-amber-600 dark:hover:text-white transition-colors">Singing Lab</Link>
-            <Link href="/competitions" className="hover:text-amber-600 dark:hover:text-white transition-colors">Tournaments</Link>
-            <Link href="/login" className="hover:text-amber-600 dark:hover:text-amber-400 font-medium transition-colors">Sign In</Link>
-          </div>
-
-          <div>© 2026 Talent5 Music Platform. All Rights Reserved.</div>
-        </div>
-      </footer>
     </div>
   );
 }

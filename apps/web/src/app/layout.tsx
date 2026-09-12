@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { AudioProvider } from '@/context/AudioContext';
 import { Navbar } from '@/components/layout/Navbar';
+import { Footer } from '@/components/layout/Footer';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { GlobalPlayer } from '@/components/player/GlobalPlayer';
 import { PWAInstallPrompt } from '@/components/ui/PWAInstallPrompt';
@@ -51,7 +52,8 @@ export default function RootLayout({
           <AuthProvider>
             <AudioProvider>
               <Navbar />
-              <main className="flex-1 pb-28 sm:pb-24">{children}</main>
+              <main className="flex-1">{children}</main>
+              <Footer />
               <MobileNav />
               <GlobalPlayer />
               <PWAInstallPrompt />
