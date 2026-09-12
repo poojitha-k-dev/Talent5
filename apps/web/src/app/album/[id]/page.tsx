@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { Play, Pause, Disc, Clock, Calendar, Music } from 'lucide-react';
 import { useAudio } from '@/context/AudioContext';
 import { Song, Album } from '@talent5/types';
-import { formatDuration } from '@talent5/utils';
+import { formatDuration, formatDate } from '@talent5/utils';
 import { Button } from '@/components/ui/Button';
 
 export default function AlbumDetailPage({ params }: { params: { id: string } }) {
@@ -73,7 +73,7 @@ export default function AlbumDetailPage({ params }: { params: { id: string } }) 
 
           <div className="flex items-center gap-4 text-xs text-gray-400">
             <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" /> {album.releaseDate}
+              <Calendar className="w-3.5 h-3.5" /> {formatDate(album.releaseDate)}
             </span>
             <span>•</span>
             <span>{tracks.length} Songs</span>

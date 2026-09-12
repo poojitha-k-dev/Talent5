@@ -284,7 +284,7 @@ export default function ArtistProfilePage({ params }: { params: { id: string } }
                       {album.title}
                     </h3>
                     <p className="text-xs text-gray-400 mt-1">
-                      {album.releaseDate.split('-')[0]} • {album.type}
+                      {album.releaseDate ? new Date(album.releaseDate).getFullYear() : '2026'} • {album.type}
                     </p>
                   </Link>
                 ))}

@@ -20,6 +20,21 @@ export function formatINR(amount: number): string {
   }).format(amount);
 }
 
+export function formatDate(dateInput: string | Date | null | undefined): string {
+  if (!dateInput) return 'Recent Release';
+  try {
+    const d = new Date(dateInput);
+    if (isNaN(d.getTime())) return String(dateInput);
+    return new Intl.DateTimeFormat('en-IN', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }).format(d);
+  } catch {
+    return String(dateInput);
+  }
+}
+
 export function formatDuration(seconds: number): string {
   if (!seconds || isNaN(seconds)) return '0:00';
   const mins = Math.floor(seconds / 60);

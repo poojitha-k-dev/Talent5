@@ -19,7 +19,7 @@ import {
 import { useAudio } from '@/context/AudioContext';
 import { useAuth } from '@/context/AuthContext';
 import { Song, RightsRecord, Lyrics, Comment } from '@talent5/types';
-import { formatCompactNumber, formatDuration } from '@talent5/utils';
+import { formatCompactNumber, formatDuration, formatDate } from '@talent5/utils';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 
@@ -186,7 +186,7 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
 
           <div className="flex flex-wrap items-center gap-4 text-xs text-gray-400 pt-1">
             <span className="flex items-center gap-1">
-              <Calendar className="w-3.5 h-3.5" /> {song.releaseDate}
+              <Calendar className="w-3.5 h-3.5" /> {formatDate(song.releaseDate)}
             </span>
             <span className="flex items-center gap-1">
               <Clock className="w-3.5 h-3.5" /> {formatDuration(song.durationSeconds)}
