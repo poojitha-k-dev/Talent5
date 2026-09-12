@@ -123,7 +123,26 @@ export class StorageService {
   public getLocalFilePath(key: string): string {
     // Sanitize key to prevent path traversal
     const safeKey = key.replace(/\.\./g, '');
-    return path.join(this.config.localDir, safeKey);
+
+    // Candidate lookup paths supporting public/media, public/uploads, and monorepo root
+    const candidatePaths = [
+      path.resolve(process.cwd(), 'public/media', safeKey),
+      path.resolve(process.cwd(), 'apps/web/public/media', safeKey),
+      path.resolve(process.cwd(), 'public/uploads/media', safeKey),
+      path.resolve(process.cwd(), 'apps/web/public/uploads/media', safeKey),
+      path.join(this.config.localDir, safeKey),
+      path.resolve(process.cwd(), 'public', safeKey),
+      path.resolve(process.cwd(), 'apps/web/public', safeKey),
+    ];
+
+    for (const candidate of candidatePaths) {
+      if (fs.existsSync(candidate)) {
+        return candidate;
+      }
+    }
+
+    // Default fallback to public/media
+    return path.resolve(process.cwd(), 'public/media', safeKey);
   }
 }
 
