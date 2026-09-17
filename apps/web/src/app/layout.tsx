@@ -8,6 +8,7 @@ import { Footer } from '@/components/layout/Footer';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { GlobalPlayer } from '@/components/player/GlobalPlayer';
 import { PWAInstallPrompt } from '@/components/ui/PWAInstallPrompt';
+import { LandingBackground } from '@/components/layout/LandingBackground';
 
 export const metadata: Metadata = {
   title: 'Talent5 — Real Voices. Original Stories. Desi Talent.',
@@ -52,6 +53,7 @@ export default function RootLayout({
           <AuthProvider>
             <AudioProvider>
               <Navbar />
+              <LandingBackground />
               <main className="flex-1">{children}</main>
               <Footer />
               <MobileNav />

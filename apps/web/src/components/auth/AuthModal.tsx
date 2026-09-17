@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Modal } from '../ui/Modal';
 import { Button } from '../ui/Button';
 import { useAuth } from '@/context/AuthContext';
-import { Sparkles, Shield, User, Lock, Mail, AtSign } from 'lucide-react';
+import { Sparkles, User, Lock, Mail, AtSign } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -191,20 +191,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           )}
         </div>
 
-        {/* Instant Seed Account Switcher */}
+        {/* Instant Seed Account Switcher — Creator & Listener only */}
         <div className="pt-4 border-t border-white/10">
           <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2 text-center">
-            One-Click Test Accounts
+            Quick Demo Access
           </p>
-          <div className="grid grid-cols-3 gap-2">
-            <button
-              type="button"
-              onClick={() => quickLogin('admin@talent5.com', 'Talent5Admin2026!')}
-              className="flex items-center justify-center gap-1.5 p-2 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 rounded-xl text-rose-300 text-xs font-medium transition-all"
-            >
-              <Shield className="w-3.5 h-3.5" />
-              <span>Admin</span>
-            </button>
+          <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               onClick={() => quickLogin('creator@talent5.com', 'Talent5Creator2026!')}

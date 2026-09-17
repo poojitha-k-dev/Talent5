@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Rozha+One&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Rozha+One&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,10 +6,12 @@
 
 :root {
   /* Default Dark Mode (Royal Midnight Obsidian) */
-  --bg-primary: #060609;
-  --bg-secondary: #0B0C10;
-  --bg-card: rgba(16, 18, 27, 0.75);
-  --bg-card-hover: rgba(26, 29, 44, 0.85);
+  /* bg-primary is semi-transparent so background music art bleeds through */
+  --bg-primary: rgba(6, 6, 9, 0.82);
+  --bg-primary-solid: #060609;
+  --bg-secondary: rgba(11, 12, 16, 0.78);
+  --bg-card: rgba(16, 18, 27, 0.68);
+  --bg-card-hover: rgba(26, 29, 44, 0.82);
   --text-primary: #FFFFFF;
   --text-secondary: #94A3B8;
   --text-muted: #64748B;
@@ -20,41 +22,58 @@
   --accent-peacock: #14B8A6;
   --accent-sindoor: #F43F5E;
   --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-bg: rgba(11, 12, 16, 0.7);
+  --glass-bg: rgba(11, 12, 16, 0.62);
   --card-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.7);
   --scroll-track: #0B0C10;
   --scroll-thumb: #1F2232;
 }
 
 .light {
-  /* Light Mode (Royal Ivory & Saffron Dawn) */
-  --bg-primary: #FAF7F2;
-  --bg-secondary: #F3ECE1;
-  --bg-card: rgba(255, 255, 255, 0.9);
-  --bg-card-hover: rgba(255, 255, 255, 1);
-  --text-primary: #0F172A;
+  /* Light Mode (Warm Ivory & Deep Ink Editorial) */
+  /* bg-primary is semi-transparent so background music art bleeds through */
+  --bg-primary: rgba(247, 244, 238, 0.80);
+  --bg-primary-solid: #F7F4EE;
+  --bg-secondary: rgba(239, 236, 228, 0.78);
+  --bg-card: rgba(255, 255, 255, 0.82);
+  --bg-card-hover: rgba(255, 255, 255, 0.96);
+  --text-primary: #10182A;
   --text-secondary: #475569;
   --text-muted: #64748B;
-  --border-subtle: rgba(217, 119, 6, 0.15);
-  --border-highlight: rgba(217, 119, 6, 0.45);
-  --accent-saffron: #D97706;
-  --accent-saffron-glow: rgba(217, 119, 6, 0.25);
+  --border-subtle: rgba(245, 154, 0, 0.16);
+  --border-highlight: rgba(245, 154, 0, 0.5);
+  --accent-saffron: #F59A00;
+  --accent-saffron-glow: rgba(245, 154, 0, 0.25);
   --accent-peacock: #0D9488;
   --accent-sindoor: #E11D48;
   --glass-border: rgba(217, 119, 6, 0.2);
-  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-bg: rgba(255, 255, 255, 0.72);
   --card-shadow: 0 10px 30px -10px rgba(180, 83, 9, 0.12), 0 4px 12px rgba(0, 0, 0, 0.05);
   --scroll-track: #F3ECE1;
   --scroll-thumb: #D5CAAC;
 }
 
 body {
-  background-color: var(--bg-primary);
+  /* Solid base colour — dark for all pages */
+  background-color: #060609;
   color: var(--text-primary);
   font-family: 'Plus Jakarta Sans', sans-serif;
   overflow-x: hidden;
   min-height: 100vh;
   transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Landing page transparent layer — sits above the fixed bg photo */
+.landing-page-layer {
+  background-color: rgba(6, 6, 9, 0.52);
+}
+
+.light .landing-page-layer {
+  background-color: rgba(6, 6, 9, 0.52);
+}
+
+.dark .landing-page-layer,
+:root .landing-page-layer {
+  background-color: rgba(6, 6, 9, 0.52);
 }
 
 h1, h2, h3, h4, h5, h6, .font-display {

@@ -19,7 +19,7 @@ import { Song, Artist, Album } from '@talent5/types';
 import { formatCompactNumber, formatDuration } from '@talent5/utils';
 import { Badge } from '@/components/ui/Badge';
 
-export default function SearchPage() {
+function SearchContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const initialQuery = searchParams.get('q') || '';
@@ -324,5 +324,13 @@ export default function SearchPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <React.Suspense fallback={<div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center text-sm text-gray-400">Loading search...</div>}>
+      <SearchContent />
+    </React.Suspense>
   );
 }

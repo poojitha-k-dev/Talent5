@@ -8,6 +8,11 @@ import { Home, Music, Sparkles, Search, Library } from 'lucide-react';
 export const MobileNav: React.FC = () => {
   const pathname = usePathname();
 
+  // On the landing page or admin or login, keep layout minimal without app navigation
+  if (pathname === '/' || pathname.startsWith('/admin') || pathname === '/login') {
+    return null;
+  }
+
   const items = [
     { name: 'Home', href: '/home', icon: Home },
     { name: 'Music', href: '/music', icon: Music },

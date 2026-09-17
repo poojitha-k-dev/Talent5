@@ -26,7 +26,7 @@ async function runAllTests() {
   let adminToken = '';
   let creatorToken = '';
   let listenerToken = '';
-  const songIdWithLyrics = 'd0000000-0000-0000-0000-000000000001';
+  let songIdWithLyrics = '';
 
   // 1. AUTHENTICATION & SECURITY
   console.log('1. Testing Authentication & Session Management...');
@@ -86,7 +86,11 @@ async function runAllTests() {
   await assert('Catalog', 'Home Catalog (Trending, Releases, Languages, Genres)', async () => {
     const res = await fetch(`${BASE_URL}/api/v1/catalog/home`);
     const json = await res.json();
-    return res.status === 200 && json.success && json.data.trending.length > 0;
+    if (res.status === 200 && json.success && json.data.trending.length > 0) {
+      songIdWithLyrics = json.data.trending[0].id;
+      return true;
+    }
+    return false;
   });
 
   await assert('Catalog', '13-Language Catalog Filtering Support', async () => {
@@ -96,6 +100,7 @@ async function runAllTests() {
   });
 
   await assert('Catalog', 'Synchronized Lyrics Endpoint & Timestamped Cues', async () => {
+    if (!songIdWithLyrics) return 'No songId available';
     const res = await fetch(`${BASE_URL}/api/v1/lyrics/${songIdWithLyrics}`);
     const json = await res.json();
     return res.status === 200 && json.success && Array.isArray(json.data.lines) && json.data.lines.length > 0;

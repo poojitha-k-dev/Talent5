@@ -1,8 +1,16 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const { searchParams } = new URL(req.url);
+    const languageParam = (searchParams.get('language') || searchParams.get('lang'))?.trim().toLowerCase() || null;
+
+    const langFilterCondition = languageParam
+      ? 'AND (LOWER(l.code) = $1 OR l.id::text = $1)'
+      : '';
+    const langValues = languageParam ? [languageParam] : [];
+
     // 1. Trending Songs (Top popularity & play count)
     const trendingRes = await query(
       `SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds", 
@@ -11,14 +19,16 @@ export async function GET() {
               s.release_date as "releaseDate", s.is_explicit as "isExplicit",
               s.popularity_score as "popularityScore", s.status,
               a.id as "artistId", a.name as "artistName",
-              l.name as "languageName", g.name as "genreName"
+              l.id as "languageId", l.code as "languageCode", l.name as "languageName",
+              g.id as "genreId", g.name as "genreName"
        FROM songs s
        JOIN artists a ON s.artist_id = a.id
        JOIN languages l ON s.language_id = l.id
        JOIN genres g ON s.genre_id = g.id
-       WHERE s.status = 'PUBLISHED'
+       WHERE s.status = 'PUBLISHED' ${langFilterCondition}
        ORDER BY s.popularity_score DESC, s.play_count DESC
-       LIMIT 8`
+       LIMIT 12`,
+      langValues
     );
 
     // 2. New Releases
@@ -28,14 +38,16 @@ export async function GET() {
               s.play_count as "playCount", s.valid_likes_count as "validLikesCount",
               s.release_date as "releaseDate", s.status,
               a.id as "artistId", a.name as "artistName",
-              l.name as "languageName", g.name as "genreName"
+              l.id as "languageId", l.code as "languageCode", l.name as "languageName",
+              g.id as "genreId", g.name as "genreName"
        FROM songs s
        JOIN artists a ON s.artist_id = a.id
        JOIN languages l ON s.language_id = l.id
        JOIN genres g ON s.genre_id = g.id
-       WHERE s.status = 'PUBLISHED'
+       WHERE s.status = 'PUBLISHED' ${langFilterCondition}
        ORDER BY s.release_date DESC, s.created_at DESC
-       LIMIT 8`
+       LIMIT 12`,
+      langValues
     );
 
     // 3. Featured Artists
@@ -48,7 +60,7 @@ export async function GET() {
        LEFT JOIN songs s ON a.id = s.artist_id
        GROUP BY a.id
        ORDER BY a.followers_count DESC
-       LIMIT 6`
+       LIMIT 8`
     );
 
     // 4. 13 Languages with Song Counts
@@ -79,14 +91,16 @@ export async function GET() {
               s.duration_seconds as "durationSeconds", s.valid_likes_count as "validLikesCount",
               s.play_count as "playCount", cp.stage_name as "creatorName",
               cp.category, cp.verified_badge as "verifiedBadge",
-              l.name as "languageName", g.name as "genreName"
+              l.id as "languageId", l.code as "languageCode", l.name as "languageName",
+              g.id as "genreId", g.name as "genreName"
        FROM desi_music_content dmc
        JOIN creator_profiles cp ON dmc.creator_id = cp.id
        JOIN songs s ON dmc.song_id = s.id
        JOIN languages l ON s.language_id = l.id
        JOIN genres g ON s.genre_id = g.id
-       WHERE dmc.is_featured = TRUE
-       LIMIT 6`
+       WHERE dmc.is_featured = TRUE ${langFilterCondition}
+       LIMIT 6`,
+      langValues
     );
 
     // 7. Active Competitions
@@ -110,6 +124,7 @@ export async function GET() {
         genres: genresRes.rows,
         desiContent: desiRes.rows,
         competitions: competitionsRes.rows,
+        activeLanguageFilter: languageParam,
       },
     });
   } catch (error: any) {

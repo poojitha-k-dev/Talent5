@@ -15,10 +15,11 @@ export async function GET(
     }
 
     const lyricsRes = await query(
-      `SELECT id, song_id as "songId", language_id as "languageId", 
-              is_synced as "isSynced", full_text as "fullText"
-       FROM lyrics
-       WHERE song_id = $1`,
+      `SELECT l.id, l.song_id as "songId", l.language_id as "languageId", 
+              l.is_synced as "isSynced", l.full_text as "fullText"
+       FROM lyrics l
+       JOIN songs s ON l.song_id = s.id
+       WHERE s.id::text = $1 OR s.slug = $1`,
       [songId]
     );
 

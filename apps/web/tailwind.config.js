@@ -1,11 +1,13 @@
+const path = require('path');
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: 'class',
   content: [
-    './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/components/**/*.{js,ts,jsx,tsx,mdx}',
-    './src/app/**/*.{js,ts,jsx,tsx,mdx}',
-    '../../packages/ui/**/*.{js,ts,jsx,tsx}',
+    path.join(__dirname, 'src/**/*.{js,ts,jsx,tsx,mdx}'),
+    path.join(__dirname, '../../packages/ui/**/*.{js,ts,jsx,tsx}'),
+    './src/**/*.{js,ts,jsx,tsx,mdx}',
+    './apps/web/src/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
@@ -44,6 +46,7 @@ module.exports = {
       fontFamily: {
         display: ['Outfit', 'sans-serif'],
         sans: ['Plus Jakarta Sans', 'sans-serif'],
+        serif: ['DM Serif Display', 'Instrument Serif', 'Georgia', 'serif'],
       },
       boxShadow: {
         saffronGlow: '0 0 25px -4px rgba(245, 158, 11, 0.4)',

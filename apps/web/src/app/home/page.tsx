@@ -15,6 +15,8 @@ import {
   ChevronRight,
   Flame,
   Radio,
+  X,
+  Music,
 } from 'lucide-react';
 import { useAudio } from '@/context/AudioContext';
 import { Song, Language, Genre, Artist, Competition } from '@talent5/types';
@@ -36,23 +38,32 @@ export default function HomePage() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
+  const [isFiltering, setIsFiltering] = useState(false);
 
   useEffect(() => {
     const fetchHomeData = async () => {
+      setIsFiltering(true);
       try {
-        const res = await fetch('/api/v1/catalog/home');
+        const url = selectedLanguage
+          ? `/api/v1/catalog/home?language=${encodeURIComponent(selectedLanguage)}`
+          : '/api/v1/catalog/home';
+        const res = await fetch(url);
         if (res.ok) {
           const json = await res.json();
-          setData(json.data);
+          setData((prev) => ({
+            ...json.data,
+            languages: prev?.languages?.length ? prev.languages : json.data.languages,
+          }));
         }
       } catch (err) {
         console.error('Failed to load home catalog', err);
       } finally {
         setLoading(false);
+        setIsFiltering(false);
       }
     };
     fetchHomeData();
-  }, []);
+  }, [selectedLanguage]);
 
   // Greeting helper
   const getGreeting = () => {
@@ -76,6 +87,7 @@ export default function HomePage() {
   }
 
   const heroSong = data?.trending?.[0];
+  const activeLang = data?.languages?.find((l) => l.code === selectedLanguage);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-10">
@@ -87,7 +99,9 @@ export default function HomePage() {
             <div className="flex-1 space-y-4 text-left">
               <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-semibold">
                 <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>Talent5 Spotlight • Desi Original</span>
+                <span>
+                  {activeLang ? `${activeLang.name} Spotlight` : 'Talent5 Spotlight'} • Desi Original
+                </span>
               </div>
 
               <h1 className="text-3xl sm:text-5xl font-extrabold font-display text-slate-900 dark:text-white leading-tight">
@@ -111,22 +125,24 @@ export default function HomePage() {
                       playSong(heroSong, data.trending);
                     }
                   }}
-                  className="gap-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shadow-saffronGlow"
+                  className="gap-2 shadow-saffronGlow"
                 >
                   {currentSong?.id === heroSong.id && isPlaying ? (
                     <>
-                      <Pause className="w-5 h-5 fill-current" /> Pause
+                      <Pause className="w-5 h-5 fill-current" />
+                      Pause Track
                     </>
                   ) : (
                     <>
-                      <Play className="w-5 h-5 fill-current ml-0.5" /> Play Spotlight
+                      <Play className="w-5 h-5 fill-current ml-0.5" />
+                      Play Spotlight Song
                     </>
                   )}
                 </Button>
 
                 <Link href="/desi">
                   <Button
-                    variant="secondary"
+                    variant="outline"
                     size="lg"
                     className="gap-2 bg-white dark:bg-midnight-800 border border-slate-200 dark:border-white/10 text-slate-800 dark:text-gray-200 hover:bg-slate-50 dark:hover:bg-midnight-700"
                   >
@@ -205,7 +221,7 @@ export default function HomePage() {
                 onClick={() => setSelectedLanguage(isSelected ? null : lang.code)}
                 className={`flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all ${
                   isSelected
-                    ? 'bg-amber-500 text-slate-950 shadow-saffronGlow font-bold'
+                    ? 'bg-amber-500 text-slate-950 shadow-saffronGlow font-bold scale-105'
                     : 'bg-white dark:bg-midnight-800 text-slate-700 dark:text-gray-300 hover:bg-slate-100 dark:hover:bg-midnight-700 border border-slate-200 dark:border-white/10'
                 }`}
               >
@@ -215,6 +231,29 @@ export default function HomePage() {
             );
           })}
         </div>
+
+        {/* Active Language Filter Feedback Indicator */}
+        {activeLang && (
+          <div className="flex items-center justify-between p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 animate-fadeIn text-xs">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              <span className="font-semibold text-amber-700 dark:text-amber-300">
+                Filtered by {activeLang.name} ({activeLang.nativeName})
+              </span>
+              <span className="text-gray-400">•</span>
+              <span className="text-gray-500 dark:text-gray-400">
+                {data?.trending.length || 0} tracks featured
+              </span>
+            </div>
+            <button
+              onClick={() => setSelectedLanguage(null)}
+              className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 font-semibold transition-colors flex items-center gap-1.5 text-[11px]"
+            >
+              <span>Clear Filter</span>
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
       </section>
 
       {/* 3. TRENDING NOW SECTION */}
@@ -222,24 +261,51 @@ export default function HomePage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Flame className="w-5 h-5 text-amber-500" />
-            <h2 className="text-xl font-bold font-display text-slate-900 dark:text-white">Trending Now in India</h2>
+            <h2 className="text-xl font-bold font-display text-slate-900 dark:text-white">
+              {activeLang ? `Trending ${activeLang.name} Music` : 'Trending Now in India'}
+            </h2>
           </div>
           <Link
-            href="/music"
+            href={activeLang ? `/music?language=${activeLang.code}` : '/music'}
             className="text-xs font-semibold text-amber-600 dark:text-amber-400 hover:underline transition-colors"
           >
             See All
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {data?.trending.map((song) => {
-            const isCurrent = currentSong?.id === song.id;
-            return (
-              <div
-                key={song.id}
-                className="group rounded-2xl p-3 flex flex-col relative overflow-hidden transition-all bg-white/80 dark:bg-midnight-900/60 border border-slate-200/80 dark:border-white/5 hover:border-amber-500/40 hover:-translate-y-1 shadow-sm hover:shadow-card"
-              >
+        {isFiltering ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 animate-pulse">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="aspect-square rounded-2xl bg-white/5 border border-white/5" />
+            ))}
+          </div>
+        ) : data?.trending.length === 0 ? (
+          <div className="p-8 rounded-2xl bg-white/5 border border-white/10 text-center space-y-3">
+            <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
+              <Music className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-bold text-white">
+              No {activeLang?.name || ''} songs found in this section yet
+            </h3>
+            <p className="text-xs text-gray-400 max-w-sm mx-auto">
+              Explore all 13 Indian languages or be the first verified creator to publish an original track in {activeLang?.name}.
+            </p>
+            <button
+              onClick={() => setSelectedLanguage(null)}
+              className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs shadow-saffronGlow"
+            >
+              Explore All Languages
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {data?.trending.map((song) => {
+              const isCurrent = currentSong?.id === song.id;
+              return (
+                <div
+                  key={song.id}
+                  className="group rounded-2xl p-3 flex flex-col relative overflow-hidden transition-all bg-white/80 dark:bg-midnight-900/60 border border-slate-200/80 dark:border-white/5 hover:border-amber-500/40 hover:-translate-y-1 shadow-sm hover:shadow-card"
+                >
                 <div className="relative aspect-square rounded-xl overflow-hidden bg-slate-100 dark:bg-midnight-800 mb-3">
                   <img
                     src={song.artworkUrl}
@@ -298,7 +364,8 @@ export default function HomePage() {
             );
           })}
         </div>
-      </section>
+      )}
+    </section>
 
       {/* 4. ANCIENT & CONTEMPORARY RAGA MOOD EXPLORER */}
       <section>

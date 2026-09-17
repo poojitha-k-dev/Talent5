@@ -28,6 +28,94 @@ export const Footer: React.FC = () => {
     return null;
   }
 
+  // Render minimal, compact editorial footer on landing page
+  if (pathname === '/') {
+    return (
+      <footer
+        className="w-full border-t border-white/10 pt-10 pb-24 px-6 sm:px-8 lg:px-12 relative z-20"
+        style={{ background: 'rgba(6,5,10,0.38)', backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' }}
+      >
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-8 lg:gap-10 items-start">
+
+            {/* Brand column */}
+            <div className="col-span-2">
+              <Link href="/" className="inline-flex items-center gap-2 mb-2">
+                <span className="font-display font-extrabold text-xl tracking-tight text-white">
+                  TALENT<span className="text-amber-500">5</span>
+                </span>
+              </Link>
+              <p className="font-serif italic text-sm text-white/60 leading-snug">
+                &ldquo;Real voices. Original stories.&rdquo;
+              </p>
+              <p className="text-[11px] text-white/40 mt-2 max-w-xs">
+                A quiet place to discover loud talent.
+              </p>
+            </div>
+
+            {/* Explore column */}
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-white mb-3">
+                Explore
+              </p>
+              <ul className="space-y-2 text-xs text-white/55">
+                <li><Link href="/home" className="hover:text-amber-400 transition-colors">Discover</Link></li>
+                <li><Link href="/music" className="hover:text-amber-400 transition-colors">Music</Link></li>
+                <li><Link href="/desi" className="hover:text-amber-400 transition-colors">Desi Music</Link></li>
+                <li><Link href="/music" className="hover:text-amber-400 transition-colors">Artists</Link></li>
+              </ul>
+            </div>
+
+            {/* Creators column */}
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-white mb-3">
+                Creators
+              </p>
+              <ul className="space-y-2 text-xs text-white/55">
+                <li><Link href="/creator-studio/apply" className="hover:text-amber-400 transition-colors">Become a Creator</Link></li>
+                <li><Link href="/creator-studio" className="hover:text-amber-400 transition-colors">Creator Studio</Link></li>
+                <li><Link href="/about" className="hover:text-amber-400 transition-colors">Support</Link></li>
+              </ul>
+            </div>
+
+            {/* Company column */}
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-white mb-3">
+                Company
+              </p>
+              <ul className="space-y-2 text-xs text-white/55">
+                <li><Link href="/about" className="hover:text-amber-400 transition-colors">About</Link></li>
+                <li><Link href="/about#contact" className="hover:text-amber-400 transition-colors">Contact</Link></li>
+                <li><Link href="/about#careers" className="hover:text-amber-400 transition-colors">Careers</Link></li>
+              </ul>
+            </div>
+
+            {/* Legal column */}
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-white mb-3">
+                Legal
+              </p>
+              <ul className="space-y-2 text-xs text-white/55">
+                <li><Link href="/privacy" className="hover:text-amber-400 transition-colors">Privacy</Link></li>
+                <li><Link href="/terms" className="hover:text-amber-400 transition-colors">Terms</Link></li>
+                <li><Link href="/rights" className="hover:text-amber-400 transition-colors">Copyright</Link></li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-white/35">
+            <p>© 2026 Talent5. All rights reserved.</p>
+            <div className="flex items-center gap-3">
+              <Link href="/rights" className="hover:text-amber-400 transition-colors">Copyright Policy</Link>
+              <span>·</span>
+              <Link href="/privacy" className="hover:text-amber-400 transition-colors">Privacy Notice</Link>
+            </div>
+          </div>
+        </div>
+      </footer>
+    );
+  }
+
   const handleNewsletterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (newsletterEmail.trim()) {

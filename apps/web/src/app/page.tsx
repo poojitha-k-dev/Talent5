@@ -1,360 +1,831 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   Play,
   Pause,
-  Sparkles,
-  Trophy,
-  ShieldCheck,
-  Coins,
-  Mic,
   ArrowRight,
-  Music,
-  Compass,
-  Flame,
-  CheckCircle2,
-  Users,
-  Globe,
-  Headphones,
-  Radio,
-  Star,
-  Layers,
-  Heart,
-  Disc3,
-  Award,
+  Volume2,
+  Check,
+  Music2,
+  Mic2,
 } from 'lucide-react';
-import { Button } from '@/components/ui/Button';
 import { useAudio } from '@/context/AudioContext';
-import { SoundMandalaVisualizer } from '@/components/creative/SoundMandalaVisualizer';
-import { RagaSoundscapeExplorer } from '@/components/creative/RagaSoundscapeExplorer';
-import { VinylTurntableShowcase } from '@/components/creative/VinylTurntableShowcase';
-import { LipiScriptWall } from '@/components/creative/LipiScriptWall';
 
+/* ─────────────────────────────────────────────
+   TYPE
+───────────────────────────────────────────── */
+interface TrackItem {
+  id: string;
+  title: string;
+  artist: string;
+  language: string;
+  audioUrl: string;
+  artworkUrl: string;
+  durationSeconds: number;
+}
+
+/* ─────────────────────────────────────────────
+   TRACKS — authentic vocal recordings
+───────────────────────────────────────────── */
+const TRACKS: TrackItem[] = [
+  {
+    id: '884de491-9f49-4726-8222-a89f6c6b03e2',
+    title: 'Ye Mausam',
+    artist: 'Arun Chillara',
+    language: 'Hindi · Acoustic',
+    audioUrl: '/api/v1/media/stream/ye_mausam.mp3',
+    artworkUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800',
+    durationSeconds: 323,
+  },
+  {
+    id: 'da14ca00-79ee-4a4f-bea0-2e27eee47e00',
+    title: 'Brochevarevarura',
+    artist: 'Arun Chillara',
+    language: 'Telugu · Carnatic',
+    audioUrl: '/api/v1/media/stream/brochevarevarura.mp3',
+    artworkUrl: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=800',
+    durationSeconds: 257,
+  },
+  {
+    id: '374b999c-5c33-4440-b8a6-dc67abfce4fd',
+    title: 'Aa Mahiya',
+    artist: 'Irfan Iqbal',
+    language: 'Punjabi · Folk',
+    audioUrl: '/api/v1/media/stream/aa_mahiya.mp3',
+    artworkUrl: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=800',
+    durationSeconds: 428,
+  },
+  {
+    id: 'fe1bf662-606a-4689-823b-42414c2f7e65',
+    title: 'Baarish',
+    artist: 'Arun Chillara',
+    language: 'Hindi · Indie',
+    audioUrl: '/api/v1/media/stream/baarish.mp3',
+    artworkUrl: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800',
+    durationSeconds: 301,
+  },
+  {
+    id: 'fe284f1e-da41-44a8-8568-473aabda2b3d',
+    title: 'Dhuan',
+    artist: 'Arun Chillara',
+    language: 'Hindi · Rock',
+    audioUrl: '/api/v1/media/stream/dhuan.mp3',
+    artworkUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=800',
+    durationSeconds: 276,
+  },
+  {
+    id: '94e01ac1-54ac-479b-9a35-60c62e1a43c8',
+    title: 'Deep Love',
+    artist: 'Kontraa',
+    language: 'Hindi · R&B',
+    audioUrl: '/api/v1/media/stream/deep_love.mp3',
+    artworkUrl: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?w=800',
+    durationSeconds: 161,
+  },
+  {
+    id: '1ed0e905-0b90-41ec-adc1-f182c9fe3d46',
+    title: 'Baras Jaye',
+    artist: 'Kontraa',
+    language: 'Hindi · Pop',
+    audioUrl: '/api/v1/media/stream/baras_jaye.mp3',
+    artworkUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=800',
+    durationSeconds: 160,
+  },
+];
+
+/* ─────────────────────────────────────────────
+   WAVEFORM — animated bars
+───────────────────────────────────────────── */
+const WAVE_HEIGHTS = [45, 80, 30, 90, 60, 40, 95, 70, 50, 85, 35, 75];
+
+function Waveform({ active }: { active: boolean }) {
+  return (
+    <div className="flex items-center gap-[2px] h-3" aria-hidden>
+      {WAVE_HEIGHTS.map((h, i) => (
+        <span
+          key={i}
+          style={{
+            height: active ? `${h}%` : '25%',
+            animationDelay: active ? `${i * 0.07}s` : '0s',
+          }}
+          className={`w-[2px] rounded-full transition-all duration-300 ${
+            active
+              ? 'bg-amber-500 animate-wave-1'
+              : 'bg-slate-300 dark:bg-white/20'
+          }`}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ─────────────────────────────────────────────
+   PAGE
+───────────────────────────────────────────── */
 export default function LandingPage() {
   const { currentSong, isPlaying, playSong, togglePlay } = useAudio();
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [featuredIdx, setFeaturedIdx] = useState(0);
+  const tickerRef = useRef<HTMLDivElement>(null);
 
-  const featuredTracks = [
-    {
-      id: 'd0000000-0000-0000-0000-000000000001',
-      title: 'Tum Bin Mann Kaha',
-      artist: 'Kabir Sen',
-      genre: 'Sufi & Ghazal',
-      language: 'Hindi',
-      duration: '3:30',
-      audioUrl: 'https://cdn.freesound.org/previews/557/557194_11861866-lq.mp3',
-      artworkUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400',
-      likes: '14.2K',
-      instrument: 'Acoustic Sitar & Sarangi',
-    },
-    {
-      id: 'd0000000-0000-0000-0000-000000000003',
-      title: 'Desi Cypher Anthem',
-      artist: 'DJ Shera ft. Young Veer',
-      genre: 'Desi Hip-Hop',
-      language: 'Punjabi',
-      duration: '2:45',
-      audioUrl: 'https://cdn.freesound.org/previews/665/665183_11861866-lq.mp3',
-      artworkUrl: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400',
-      likes: '28.9K',
-      instrument: '808s & Punjabi Tumbi',
-    },
-    {
-      id: 'd0000000-0000-0000-0000-000000000002',
-      title: 'Chennai Rain Raga',
-      artist: 'Meera Swaminathan',
-      genre: 'Carnatic Fusion',
-      language: 'Tamil',
-      duration: '4:10',
-      audioUrl: 'https://cdn.freesound.org/previews/612/612608_11861866-lq.mp3',
-      artworkUrl: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=400',
-      likes: '19.4K',
-      instrument: 'Venu Flute & Mridangam',
-    },
-  ];
+  /* helpers */
+  const isCurrentPlaying = (url: string) =>
+    currentSong?.audioUrl === url && isPlaying;
 
-  const handlePlayPreview = (track: typeof featuredTracks[0]) => {
-    if (currentSong?.id === track.id) {
+  const handlePlay = (track: TrackItem) => {
+    if (currentSong?.audioUrl === track.audioUrl) {
       togglePlay();
-      return;
+    } else {
+      playSong({
+        id: track.id,
+        title: track.title,
+        artistName: track.artist,
+        audioUrl: track.audioUrl,
+        artworkUrl: track.artworkUrl,
+        durationSeconds: track.durationSeconds,
+      } as any);
     }
-
-    playSong({
-      id: track.id,
-      title: track.title,
-      artistName: track.artist,
-      audioUrl: track.audioUrl,
-      artworkUrl: track.artworkUrl,
-      durationSeconds: 210,
-    } as any);
   };
 
+  const featured = TRACKS[featuredIdx] ?? TRACKS[0];
+
+  /* Ticker scroll — continuous loop via CSS animation */
+  const tickerTracks = [...TRACKS.slice(0, 4), ...TRACKS.slice(0, 4)];
+
   return (
-    <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] overflow-hidden transition-colors duration-300">
-      {/* 1. DYNAMIC HERO SECTION WITH SOUND MANDALA */}
-      <section className="relative pt-12 pb-20 md:pt-20 md:pb-28 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        {/* Glowing Ambient Backdrop Aura */}
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none opacity-80 z-0">
-          <SoundMandalaVisualizer size="lg" />
-        </div>
+    <div className="relative landing-page-layer text-[var(--text-primary)] transition-colors duration-500 overflow-x-hidden selection:bg-amber-500 selection:text-slate-950">
 
-        <div className="text-center space-y-6 max-w-4xl mx-auto relative z-10">
-          {/* Sanskrit / English Desi Tagline Pill */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/80 dark:bg-midnight-900/90 border border-amber-500/30 shadow-saffronGlow backdrop-blur-md animate-fade-in">
-            <span className="w-2 h-2 rounded-full bg-amber-500 dark:bg-amber-400 animate-pulse" />
-            <span className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-widest">
-              Real Voices • Original Stories • Desi Talent
+      {/* Background rendered by LandingBackground component in layout.tsx — only shows on / */}
+
+      {/* All content sits above the background layer */}
+      <div className="relative z-10">
+
+      {/* ═══════════════════════════════════════════════════════════════
+          CHAPTER 01 — EDITORIAL ASYMMETRIC HERO
+      ═══════════════════════════════════════════════════════════════ */}
+      <section className="relative pt-8 sm:pt-12 lg:pt-16 pb-0 max-w-7xl mx-auto px-5 sm:px-8 lg:px-12">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 items-center">
+
+          {/* ── LEFT: editorial headline ── */}
+          <div className="lg:col-span-6 flex flex-col justify-center text-left z-10">
+            {/* eyebrow */}
+            <div className="inline-flex items-center gap-2 mb-5">
+              <span
+                className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"
+                aria-hidden
+              />
+              <span className="text-[10px] font-bold tracking-[0.32em] text-amber-400 uppercase">
+                TALENT5 / MUSIC DISCOVERY
+              </span>
+            </div>
+
+            {/* headline */}
+            <h1 className="font-serif text-[3.4rem] sm:text-[4.5rem] md:text-[5.5rem] lg:text-[5.8rem] font-normal tracking-[-0.02em] leading-[0.93] text-white mb-6">
+              MUSIC
+              <br />
+              YOU HAVEN&apos;T
+              <br />
+              HEARD{' '}
+              <span className="italic text-amber-500 underline decoration-amber-400/30 decoration-wavy underline-offset-8">
+                YET.
+              </span>
+            </h1>
+
+            <p className="text-base sm:text-lg text-white/80 font-light leading-relaxed max-w-md mb-8">
+              Discover original music, independent artists and voices from across India.
+            </p>
+
+            <div className="flex flex-wrap items-center gap-4">
+              <Link
+                href="/music"
+                className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] tracking-widest uppercase transition-all shadow-md hover:-translate-y-0.5 active:scale-95"
+              >
+                EXPLORE MUSIC
+                <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+              <Link
+                href="#meet-voices"
+                className="inline-flex items-center px-6 py-3.5 rounded-full border border-white/30 text-white hover:border-amber-400 hover:text-amber-400 font-medium text-[11px] tracking-widest uppercase transition-all"
+              >
+                MEET THE ARTISTS
+              </Link>
+            </div>
+          </div>
+
+          {/* ── RIGHT: editorial glass composition — no photo, lets bg breathe ── */}
+          <div className="lg:col-span-6 relative mt-2 lg:mt-0">
+            <div className="relative w-full max-w-lg mx-auto">
+
+              {/* Main glass card — large */}
+              <div className="relative rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden border border-white/10 dark:border-white/8 shadow-2xl"
+                style={{ background: 'rgba(10,10,16,0.42)', backdropFilter: 'blur(18px)' }}>
+
+                {/* Top badge */}
+                <div className="px-5 pt-5 pb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span className="text-[10px] font-bold tracking-[0.28em] text-amber-400 uppercase">
+                      Studio Session · Live
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-white/40 tracking-wider">TALENT5</span>
+                </div>
+
+                {/* Big artist name display */}
+                <div className="px-5 pb-2">
+                  <p className="font-serif text-4xl sm:text-5xl text-white font-normal leading-tight tracking-tight">
+                    Arun<br />Chillara
+                  </p>
+                  <p className="text-sm text-amber-400/90 font-medium mt-1">Hyderabad · Telugu Acoustic</p>
+                </div>
+
+                {/* Waveform visual */}
+                <div className="px-5 py-4 flex items-end gap-[3px]">
+                  {[22,40,28,55,38,65,30,58,44,70,32,60,48,36,68,26,52,42,62,34,50,44,58,30,66].map((h, i) => (
+                    <div key={i} className="rounded-t-sm flex-1"
+                      style={{
+                        height: `${h}px`,
+                        background: i % 3 === 0 ? 'rgba(245,158,11,0.75)' : i % 3 === 1 ? 'rgba(20,184,166,0.55)' : 'rgba(255,255,255,0.20)',
+                        animation: `waveBars ${0.5 + (i % 5) * 0.15}s ease-in-out infinite`,
+                        animationDelay: `${i * 0.06}s`,
+                      }} />
+                  ))}
+                </div>
+
+                {/* Now playing row */}
+                <div className="mx-4 mb-4 rounded-2xl border border-amber-500/20 p-3 flex items-center gap-3"
+                  style={{ background: 'rgba(245,158,11,0.08)' }}>
+                  <div className="relative w-10 h-10 rounded-xl overflow-hidden flex-shrink-0">
+                    <img src={TRACKS[0].artworkUrl} alt={TRACKS[0].title} className="w-full h-full object-cover" />
+                    {isCurrentPlaying(TRACKS[0].audioUrl) && (
+                      <div className="absolute inset-0 bg-amber-500/30 flex items-center justify-center">
+                        <Volume2 className="w-3.5 h-3.5 text-amber-300 animate-pulse" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-white truncate">{TRACKS[0].title}</p>
+                    <p className="text-[11px] text-white/50 truncate">{TRACKS[0].artist} · {TRACKS[0].language}</p>
+                    <Waveform active={isCurrentPlaying(TRACKS[0].audioUrl)} />
+                  </div>
+                  <button onClick={() => handlePlay(TRACKS[0])}
+                    className="w-9 h-9 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 flex items-center justify-center flex-shrink-0 shadow-md transition-transform hover:scale-105 active:scale-95"
+                    aria-label={isCurrentPlaying(TRACKS[0].audioUrl) ? 'Pause' : 'Play Ye Mausam'}>
+                    {isCurrentPlaying(TRACKS[0].audioUrl)
+                      ? <Pause className="w-4 h-4 fill-slate-950" />
+                      : <Play className="w-4 h-4 fill-slate-950 ml-0.5" />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Overlapping small track card — top-right stagger */}
+              <div className="hidden sm:block absolute -top-4 -right-4 w-36 rounded-2xl overflow-hidden shadow-2xl border border-white/10 rotate-3 z-20 transition-transform duration-300 hover:rotate-0 cursor-pointer"
+                style={{ background: 'rgba(10,10,16,0.55)', backdropFilter: 'blur(16px)' }}
+                onClick={() => handlePlay(TRACKS[1])}>
+                <div className="relative aspect-square overflow-hidden">
+                  <img src={TRACKS[1].artworkUrl} alt={TRACKS[1].title} className="w-full h-full object-cover opacity-80" />
+                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-full bg-amber-500/90 text-slate-950 flex items-center justify-center shadow">
+                      {isCurrentPlaying(TRACKS[1].audioUrl)
+                        ? <Pause className="w-3.5 h-3.5 fill-current" />
+                        : <Play className="w-3.5 h-3.5 fill-current ml-0.5" />}
+                    </div>
+                  </div>
+                </div>
+                <div className="px-2.5 py-2">
+                  <p className="text-[10px] font-bold text-white truncate">{TRACKS[1].title}</p>
+                  <p className="text-[9px] text-amber-400/80 truncate">{TRACKS[1].language}</p>
+                </div>
+              </div>
+
+              {/* Language tag strip — bottom stagger */}
+              <div className="absolute -bottom-3 left-4 right-4 flex flex-wrap gap-1.5 justify-center z-20">
+                {['Hindi','Telugu','Punjabi','Tamil','Bengali'].map((lang) => (
+                  <span key={lang}
+                    className="px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider border"
+                    style={{ background: 'rgba(10,10,16,0.70)', backdropFilter: 'blur(12px)', borderColor: 'rgba(245,158,11,0.25)', color: 'rgba(245,158,11,0.85)' }}>
+                    {lang}
+                  </span>
+                ))}
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          LISTENING NOW STRIP — zero gap below hero
+      ═══════════════════════════════════════════════════════════════ */}
+      <div className="w-full mt-8 border-y border-white/10 py-3.5 px-4 sm:px-8"
+        style={{ background: 'rgba(8,7,14,0.25)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)' }}>
+        <div className="max-w-7xl mx-auto flex items-center gap-4 md:gap-6">
+          {/* Label */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="relative flex h-2 w-2" aria-hidden>
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-500 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+            </span>
+            <span className="text-[10px] font-bold tracking-[0.28em] text-amber-400 uppercase whitespace-nowrap">
+              LISTENING NOW
             </span>
           </div>
 
-          <h1 className="text-4xl sm:text-6xl md:text-7xl font-black font-display tracking-tight text-slate-900 dark:text-white leading-[1.1]">
-            Where India’s Indie Music <br className="hidden sm:inline" />
-            <span className="bg-gradient-to-r from-amber-600 via-amber-500 to-teal-600 dark:from-amber-400 dark:via-amber-300 dark:to-teal-300 bg-clip-text text-transparent">
-              Comes to Life.
-            </span>
-          </h1>
-
-          <p className="text-sm sm:text-lg text-slate-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            Stream high-fidelity original music across 13 Indian languages, support independent creators with validated engagement rewards, and discover grassroots superstars.
-          </p>
-
-          <div className="pt-4 flex flex-wrap items-center justify-center gap-4">
-            <Link href="/home">
-              <Button
-                variant="primary"
-                size="lg"
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm px-8 py-3.5 shadow-saffronGlow rounded-full hover:scale-105 transition-all"
-              >
-                <Play className="w-4 h-4 mr-2 fill-current" />
-                Start Listening Free
-              </Button>
-            </Link>
-
-            <Link href="/creator-studio/apply">
-              <Button
-                variant="ghost"
-                size="lg"
-                className="border border-slate-300 dark:border-white/15 hover:border-teal-500 hover:bg-teal-500/10 text-slate-800 dark:text-white font-bold text-sm px-8 py-3.5 rounded-full backdrop-blur-md transition-all"
-              >
-                <Sparkles className="w-4 h-4 mr-2 text-teal-600 dark:text-teal-400" />
-                Become a Verified Creator
-              </Button>
-            </Link>
+          {/* Scrollable track buttons */}
+          <div className="flex items-center gap-5 overflow-x-auto no-scrollbar py-0.5 flex-1">
+            {TRACKS.slice(0, 4).map((t) => {
+              const active = isCurrentPlaying(t.audioUrl);
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => handlePlay(t)}
+                  className={`inline-flex items-center gap-2 whitespace-nowrap text-xs font-medium transition-colors group ${
+                    active
+                      ? 'text-amber-400 font-bold'
+                      : 'text-white/80 hover:text-amber-400'
+                  }`}
+                >
+                  <span
+                    className={`w-5 h-5 rounded-full flex items-center justify-center transition-colors text-[10px] flex-shrink-0 ${
+                      active
+                        ? 'bg-amber-500 text-slate-950'
+                        : 'bg-amber-500/15 text-amber-400 group-hover:bg-amber-500 group-hover:text-slate-950'
+                    }`}
+                    aria-hidden
+                  >
+                    {active ? (
+                      <Pause className="w-2.5 h-2.5 fill-current" />
+                    ) : (
+                      <Play className="w-2.5 h-2.5 fill-current ml-0.5" />
+                    )}
+                  </span>
+                  <span>
+                    {t.title}{' '}
+                    <span className="opacity-55">— {t.artist}</span>
+                  </span>
+                  <span className="text-[9px] font-bold uppercase text-amber-400/70">
+                    {t.language.split(' · ')[0]}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Quick Metrics Bar */}
-          <div className="pt-12 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-3xl mx-auto border-t border-amber-500/15 dark:border-white/10 text-left">
-            <div className="p-3">
-              <div className="text-2xl font-bold font-display text-slate-900 dark:text-white">13+</div>
-              <div className="text-xs text-slate-500 dark:text-gray-400">Indian Languages</div>
-            </div>
-            <div className="p-3">
-              <div className="text-2xl font-bold font-display text-amber-600 dark:text-amber-400">100%</div>
-              <div className="text-xs text-slate-500 dark:text-gray-400">Original Masters</div>
-            </div>
-            <div className="p-3">
-              <div className="text-2xl font-bold font-display text-teal-600 dark:text-teal-400">₹0.10</div>
-              <div className="text-xs text-slate-500 dark:text-gray-400">Reward Per Valid Like</div>
-            </div>
-            <div className="p-3">
-              <div className="text-2xl font-bold font-display text-rose-600 dark:text-rose-400">₹1,00,000+</div>
-              <div className="text-xs text-slate-500 dark:text-gray-400">Tournament Prizes</div>
-            </div>
-          </div>
+          {/* View all */}
+          <Link
+            href="/music"
+            className="hidden md:inline-flex items-center gap-1 text-[11px] font-semibold text-white/50 hover:text-amber-400 transition-colors flex-shrink-0"
+          >
+            VIEW ALL
+            <ArrowRight className="w-3 h-3" />
+          </Link>
         </div>
-      </section>
+      </div>
 
-      {/* 2. REGIONAL LIPI SCRIPT WALL */}
-      <section className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-amber-500/15 dark:border-white/5">
-        <LipiScriptWall />
-      </section>
-
-      {/* 3. VINYL TURNTABLE SHOWCASE */}
-      <section className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <VinylTurntableShowcase />
-      </section>
-
-      {/* 4. ANCIENT & CONTEMPORARY RAGA MOOD EXPLORER */}
-      <section className="py-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <RagaSoundscapeExplorer />
-      </section>
-
-      {/* 5. TRENDING DESI ORIGINALS AUDIO TEASER */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-amber-500/15 dark:border-white/5">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+      {/* ═══════════════════════════════════════════════════════════════
+          CHAPTER 02 — CURATED DISCOVERY + TYPOGRAPHY MOMENT
+      ═══════════════════════════════════════════════════════════════ */}
+      <section className="pt-14 sm:pt-16 pb-14 sm:pb-16 max-w-7xl mx-auto px-5 sm:px-8 lg:px-12">
+        {/* section header */}
+        <div className="flex items-end justify-between mb-8 sm:mb-10">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 text-xs font-bold mb-2">
-              <Sparkles className="w-3 h-3" />
-              <span>Pure Independent Masters</span>
-            </div>
-            <h2 className="text-3xl font-extrabold font-display text-slate-900 dark:text-white">
-              Trending Desi Originals
+            <span className="text-[10px] font-bold tracking-[0.28em] text-amber-400 uppercase block mb-1">
+              CURATED SELECTION
+            </span>
+            <h2 className="font-serif text-3xl sm:text-4xl md:text-[2.8rem] font-normal tracking-tight text-white leading-tight">
+              DISCOVER SOMETHING NEW.
             </h2>
           </div>
           <Link
             href="/music"
-            className="text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 transition-colors"
+            className="hidden sm:inline-flex items-center gap-1.5 text-[11px] font-bold tracking-widest uppercase text-white/50 hover:text-amber-400 transition-colors"
           >
-            <span>Explore Full 13-Language Catalog</span>
+            EXPLORE CATALOG
             <ArrowRight className="w-3.5 h-3.5" />
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {featuredTracks.map((track) => {
-            const isThisPlaying = currentSong?.id === track.id && isPlaying;
-            return (
-              <div
-                key={track.id}
-                className="p-5 rounded-3xl bg-white/80 dark:bg-midnight-900/60 border border-slate-200/80 dark:border-white/10 hover:border-amber-500/40 transition-all flex items-center justify-between gap-4 group backdrop-blur-md shadow-card hover:-translate-y-1"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-100 dark:bg-midnight-950 flex-shrink-0 relative">
-                    <img
-                      src={track.artworkUrl}
-                      alt={track.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="text-sm font-bold text-slate-900 dark:text-white truncate">{track.title}</h3>
-                    <p className="text-xs text-slate-600 dark:text-gray-400 truncate mt-0.5">{track.artist}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 dark:bg-white/5 text-amber-700 dark:text-amber-400">
-                        {track.language} • {track.genre}
-                      </span>
-                      <span className="text-[10px] text-slate-500 dark:text-gray-400 flex items-center gap-0.5">
-                        <Heart className="w-3 h-3 text-rose-500 fill-current" />
-                        {track.likes}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+        {/* asymmetric composition */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
 
-                <button
-                  onClick={() => handlePlayPreview(track)}
-                  className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${
-                    isThisPlaying
-                      ? 'bg-amber-500 text-slate-950 shadow-saffronGlow scale-105'
-                      : 'bg-slate-100 dark:bg-white/10 hover:bg-amber-500 hover:text-slate-950 text-slate-800 dark:text-white'
-                  }`}
-                >
-                  {isThisPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5 fill-current" />}
-                </button>
+          {/* ── Featured album (large left) ── */}
+          <div className="lg:col-span-7 rounded-3xl p-5 sm:p-7 border border-white/10 shadow-2xl flex flex-col sm:flex-row gap-6 items-center"
+            style={{ background: 'rgba(8,7,14,0.28)', backdropFilter: 'blur(22px)', WebkitBackdropFilter: 'blur(22px)' }}>
+            <div className="relative w-full sm:w-56 flex-shrink-0 aspect-square rounded-2xl overflow-hidden group shadow-md">
+              <img
+                src={featured.artworkUrl}
+                alt={featured.title}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+              <button
+                onClick={() => handlePlay(featured)}
+                className="absolute inset-0 bg-black/45 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                aria-label={`Play ${featured.title}`}
+              >
+                <div className="w-14 h-14 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center shadow-xl scale-90 group-hover:scale-100 transition-transform">
+                  {isCurrentPlaying(featured.audioUrl) ? (
+                    <Pause className="w-6 h-6 fill-current" />
+                  ) : (
+                    <Play className="w-6 h-6 fill-current ml-0.5" />
+                  )}
+                </div>
+              </button>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-between text-left">
+              <div>
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/12 text-amber-400 border border-amber-500/22 mb-3">
+                  {featured.language}
+                </span>
+                <h3 className="font-serif text-2xl sm:text-3xl text-white leading-tight">
+                  {featured.title}
+                </h3>
+                <p className="text-sm font-medium text-white/80 mt-1">
+                  {featured.artist}
+                </p>
+                <p className="text-xs text-white/55 mt-3 line-clamp-3 leading-relaxed font-light">
+                  A soulful acoustic journey rooted in traditional Indian melodic sensibilities,
+                  performed by genuine independent voices.
+                </p>
               </div>
-            );
-          })}
+
+              <div className="mt-5 flex items-center gap-3">
+                <button
+                  onClick={() => handlePlay(featured)}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] tracking-wider uppercase transition-all shadow-sm active:scale-95"
+                >
+                  {isCurrentPlaying(featured.audioUrl) ? (
+                    <>
+                      <Pause className="w-3.5 h-3.5 fill-current" />
+                      PAUSE
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                      PLAY SONG
+                    </>
+                  )}
+                </button>
+                <span className="text-[11px] text-white/55 font-mono tabular-nums">
+                  {Math.floor(featured.durationSeconds / 60)}:
+                  {String(featured.durationSeconds % 60).padStart(2, '0')}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* ── Staggered secondary artworks (right) ── */}
+          <div className="lg:col-span-5 grid grid-cols-2 gap-4">
+            {TRACKS.slice(1, 5).map((t, idx) => {
+              const active = isCurrentPlaying(t.audioUrl);
+              const selected = featured.id === t.id;
+              return (
+                <div
+                  key={t.id}
+                  onClick={() => setFeaturedIdx(idx + 1)}
+                  className={`group relative rounded-2xl p-3 border cursor-pointer transition-all ${
+                    selected
+                      ? 'border-amber-500/50 shadow-lg shadow-amber-500/10'
+                      : 'border-white/10 hover:border-amber-500/30'
+                  }`}
+                  style={{ background: selected ? 'rgba(245,158,11,0.10)' : 'rgba(8,7,14,0.28)', backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)' }}
+                >
+                  <div className="relative aspect-square rounded-xl overflow-hidden mb-2.5">
+                    <img
+                      src={t.artworkUrl}
+                      alt={t.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handlePlay(t); }}
+                      className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-black/65 backdrop-blur-md text-amber-400 flex items-center justify-center shadow hover:bg-amber-500 hover:text-slate-950 transition-colors"
+                      aria-label={`Play ${t.title}`}
+                    >
+                      {active ? (
+                        <Pause className="w-3.5 h-3.5 fill-current" />
+                      ) : (
+                        <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs font-semibold text-white truncate">
+                    {t.title}
+                  </p>
+                  <p className="text-[11px] text-white/55 truncate">
+                    {t.artist}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Editorial Typography Moment — no gap ── */}
+        <div className="mt-14 pt-10 border-t border-white/15 text-center max-w-3xl mx-auto">
+          <blockquote className="font-serif text-3xl sm:text-4xl md:text-[2.8rem] font-normal text-white tracking-tight leading-[1.1] mb-4">
+            &ldquo;Some songs find you.
+            <br />
+            Some songs{' '}
+            <span className="italic text-amber-400">change you.&rdquo;</span>
+          </blockquote>
+          <p className="text-xs sm:text-sm text-white/55 font-light tracking-wide leading-relaxed">
+            Curating original recordings across 13 Indian languages directly from grassroots studios.
+          </p>
+          <div className="mt-4 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-400 tracking-wider uppercase">
+            <Music2 className="w-3 h-3" />
+            Updated weekly — new drops every Friday
+          </div>
         </div>
       </section>
 
-      {/* 6. PLATFORM PILLARS (4 CORE EXPERIENCES) */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto border-t border-amber-500/15 dark:border-white/5 space-y-12">
-        <div className="text-center max-w-2xl mx-auto space-y-2">
-          <span className="text-xs font-bold text-teal-600 dark:text-teal-400 uppercase tracking-widest">
-            A Next-Generation Music Platform
-          </span>
-          <h2 className="text-3xl sm:text-4xl font-extrabold font-display text-slate-900 dark:text-white">
-            Built for Listeners, Creators & Innovators
+      {/* ═══════════════════════════════════════════════════════════════
+          CHAPTER 03 — DESI MUSIC SIGNATURE SPREAD + MEET THE VOICES
+      ═══════════════════════════════════════════════════════════════ */}
+      <section className="relative w-full" aria-label="Desi Music">
+        {/* Full-width cinematic spread — transparent, aligns with fixed bg photo */}
+        <div className="relative w-full min-h-[420px] sm:min-h-[480px] flex items-center justify-center overflow-hidden">
+          {/* No separate image — the fixed background girl photo shows through */}
+          {/* Dark gradient overlay with amber warmth — matches the bg tone */}
+          <div className="absolute inset-0"
+            style={{ background: 'linear-gradient(to bottom, rgba(6,5,10,0.55) 0%, rgba(6,5,10,0.30) 50%, rgba(6,5,10,0.55) 100%)' }} />
+          {/* Amber warm band centre */}
+          <div className="absolute inset-0"
+            style={{ background: 'radial-gradient(ellipse at 50% 50%, rgba(180,80,0,0.18) 0%, transparent 65%)' }} />
+
+          <div className="relative z-10 max-w-4xl mx-auto px-6 py-14 text-center text-white">
+            <span className="text-[10px] font-bold tracking-[0.32em] uppercase text-amber-400 mb-3 block">
+              DESI MUSIC
+            </span>
+            <h2 className="font-serif text-4xl sm:text-5xl md:text-[3.4rem] font-normal tracking-tight leading-[1.04] mb-4">
+              ORIGINAL VOICES.
+              <br />
+              <span className="italic text-amber-300">ORIGINAL STORIES.</span>
+            </h2>
+            <p className="text-sm sm:text-base text-gray-200 font-light max-w-lg mx-auto mb-5 leading-relaxed">
+              Discover independent artists, original songs and stories shaped by India&apos;s many sounds.
+            </p>
+
+            {/* Language stream — flowing text line */}
+            <p className="text-xs sm:text-sm font-light text-amber-200/85 tracking-wide leading-loose mb-7 max-w-2xl mx-auto">
+              Hindi · Telugu · Tamil · Kannada · Malayalam · Bengali · Marathi ·
+              Punjabi · Gujarati · Odia · Assamese · Urdu · Bhojpuri
+            </p>
+
+            <Link
+              href="/desi"
+              className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] tracking-widest uppercase transition-all shadow-xl hover:-translate-y-0.5 active:scale-95"
+            >
+              EXPLORE DESI MUSIC
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
+
+        {/* ── Meet the Voices — direct connection, zero gap ── */}
+        <div id="meet-voices" className="max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 pt-12 pb-16">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+
+            {/* Artist large portrait */}
+            <div className="lg:col-span-5 relative">
+              <div className="relative aspect-[3/4] max-w-sm mx-auto rounded-3xl overflow-hidden shadow-2xl border border-black/5 dark:border-white/8 group">
+                <img
+                  src="/images/landing/creator_story_artist.jpg"
+                  alt="Arun Chillara — featured artist"
+                  className="w-full h-full object-cover object-top transition-transform duration-700 group-hover:scale-[1.02]"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-transparent to-transparent pointer-events-none" />
+                <div className="absolute bottom-5 left-5 right-5 text-white">
+                  <span className="text-[10px] uppercase font-bold tracking-widest text-amber-400">
+                    FEATURED ARTIST
+                  </span>
+                  <p className="text-xl font-bold mt-0.5">Arun Chillara</p>
+                  <p className="text-xs text-gray-300">Hyderabad · Telugu Acoustic</p>
+                </div>
+                {/* Staggered secondary portrait hint */}
+                <div className="hidden sm:block absolute top-5 -right-6 w-20 h-20 rounded-2xl overflow-hidden shadow-xl border-2 border-white/70 dark:border-white/15 rotate-3 z-10">
+                  <img
+                    src={TRACKS[2].artworkUrl}
+                    alt="Irfan Iqbal"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Artist story */}
+            <div className="lg:col-span-7 flex flex-col justify-center text-left">
+              <span className="text-[10px] font-bold tracking-[0.28em] text-amber-400 uppercase mb-3">
+                MEET THE VOICES
+              </span>
+
+              <h3 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-normal tracking-tight text-white mb-2">
+                Arun Chillara
+              </h3>
+
+              <div className="flex flex-wrap items-center gap-2 mb-6">
+                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-amber-500/12 text-amber-400 border border-amber-500/25">
+                  Telugu
+                </span>
+                <span className="text-xs text-white/55">
+                  · Indie · Acoustic
+                </span>
+              </div>
+
+              <blockquote className="font-serif italic text-xl sm:text-2xl text-white/80 leading-snug mb-8 max-w-lg border-l-2 border-amber-500 pl-4">
+                &ldquo;Every song carries a piece of where I come from.&rdquo;
+              </blockquote>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => handlePlay(TRACKS[1])}
+                  className="inline-flex items-center gap-2 px-7 py-3 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] tracking-widest uppercase transition-all shadow-md active:scale-95"
+                >
+                  {isCurrentPlaying(TRACKS[1].audioUrl) ? (
+                    <>
+                      <Pause className="w-3.5 h-3.5 fill-current" />
+                      PAUSE
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-3.5 h-3.5 fill-current ml-0.5" />
+                      PLAY BROCHEVAREVARURA
+                    </>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setIsFollowing((v) => !v)}
+                  className={`inline-flex items-center gap-1.5 px-6 py-3 rounded-full text-[11px] tracking-widest uppercase font-medium border transition-all ${
+                    isFollowing
+                      ? 'border-teal-500 text-teal-400 bg-teal-500/8'
+                      : 'border-white/30 text-white hover:border-amber-400 hover:text-amber-400'
+                  }`}
+                >
+                  {isFollowing ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-teal-500" />
+                      FOLLOWING
+                    </>
+                  ) : (
+                    'FOLLOW'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════════
+          CHAPTER 04 — VISUAL MUSIC WALL + CREATOR MOMENT
+      ═══════════════════════════════════════════════════════════════ */}
+      <section className="pt-10 sm:pt-12 pb-12 sm:pb-14 max-w-7xl mx-auto px-5 sm:px-8 lg:px-12">
+
+        {/* Centrepiece message */}
+        <div className="text-center mb-8 sm:mb-10">
+          <h2 className="font-serif text-3xl sm:text-4xl md:text-[2.8rem] font-normal tracking-tight text-white leading-tight mb-2">
+            YOUR NEXT FAVOURITE
+            <br />
+            <span className="italic text-amber-400">MIGHT BE UNKNOWN.</span>
           </h2>
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-gray-400">
-            Engineered with strict legal provenance, real-time engagement economics, and AI vocal technology.
+          <p className="text-xs sm:text-sm text-white/55 max-w-sm mx-auto font-light leading-relaxed">
+            Discover emerging voices before they become familiar names.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Card 1 */}
-          <div className="p-6 rounded-3xl bg-white/80 dark:bg-midnight-900/50 border border-slate-200 dark:border-white/5 hover:border-amber-500/30 transition-all space-y-4 shadow-sm hover:shadow-md">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
-              <Headphones className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white font-display">Spotify-Grade Streaming</h3>
-            <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed">
-              Uninterrupted global audio engine with real-time millisecond-matched teleprompter lyrics across 13 Indian languages.
-            </p>
-            <Link href="/music" className="inline-flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 font-bold hover:underline">
-              <span>Browse Catalog</span>
-              <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
+        {/* ── Artistic floating music wall ── */}
+        <div className="relative py-4 flex items-center justify-center overflow-hidden sm:overflow-visible">
+          {/* Soft ambient glow behind the wall */}
+          <div
+            className="absolute inset-0 blur-3xl opacity-20 dark:opacity-30 pointer-events-none"
+            style={{
+              background:
+                'radial-gradient(ellipse at 50% 50%, rgba(245,158,11,0.35) 0%, transparent 70%)',
+            }}
+            aria-hidden
+          />
 
-          {/* Card 2 */}
-          <div className="p-6 rounded-3xl bg-white/80 dark:bg-midnight-900/50 border border-slate-200 dark:border-white/5 hover:border-teal-500/30 transition-all space-y-4 shadow-sm hover:shadow-md">
-            <div className="w-12 h-12 rounded-2xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-600 dark:text-teal-400">
-              <Coins className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white font-display">Validated Economics</h3>
-            <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed">
-              Creators earn transparently (₹0.10 / valid like). Anti-fraud heuristics filter bot velocity and enable direct UPI withdrawals.
-            </p>
-            <Link href="/creator-studio/apply" className="inline-flex items-center gap-1 text-xs text-teal-600 dark:text-teal-400 font-bold hover:underline">
-              <span>Creator Rewards</span>
-              <ArrowRight className="w-3 h-3" />
-            </Link>
-          </div>
+          <div className="flex items-end justify-center -space-x-6 sm:-space-x-10 md:-space-x-14 relative z-10">
+            {TRACKS.slice(0, 5).map((track, i) => {
+              const rotations = ['-rotate-[4deg]', 'rotate-[2deg]', 'rotate-0 scale-[1.06] z-20', 'rotate-[3deg]', '-rotate-[3deg]'];
+              const sizes = [
+                'w-36 sm:w-44 md:w-52',
+                'w-40 sm:w-48 md:w-56',
+                'w-44 sm:w-56 md:w-64',
+                'w-40 sm:w-48 md:w-56',
+                'w-36 sm:w-44 md:w-52',
+              ];
+              const active = isCurrentPlaying(track.audioUrl);
 
-          {/* Card 3 */}
-          <div className="p-6 rounded-3xl bg-white/80 dark:bg-midnight-900/50 border border-slate-200 dark:border-white/5 hover:border-rose-500/30 transition-all space-y-4 shadow-sm hover:shadow-md">
-            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-600 dark:text-rose-400">
-              <Trophy className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white font-display">Talent Tournaments</h3>
-            <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed">
-              Nationwide challenges with ₹1,00,000+ cash prizes, live audience voting, and real-time audited leaderboards.
-            </p>
-            <Link href="/competitions" className="inline-flex items-center gap-1 text-xs text-rose-600 dark:text-rose-400 font-bold hover:underline">
-              <span>View Challenges</span>
-              <ArrowRight className="w-3 h-3" />
-            </Link>
+              return (
+                <div
+                  key={track.id}
+                  onClick={() => handlePlay(track)}
+                  className={`group relative aspect-square rounded-2xl sm:rounded-3xl overflow-hidden shadow-xl transition-all duration-500 hover:scale-110 hover:z-30 cursor-pointer ${rotations[i]} ${sizes[i]}`}
+                  role="button"
+                  aria-label={`Play ${track.title}`}
+                  tabIndex={0}
+                  onKeyDown={(e) => e.key === 'Enter' && handlePlay(track)}
+                >
+                  <img
+                    src={track.artworkUrl}
+                    alt={track.title}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/15 to-transparent flex flex-col justify-end p-3 text-white opacity-90 group-hover:opacity-100 transition-opacity">
+                    <p className="text-xs sm:text-sm font-semibold truncate leading-tight">
+                      {track.title}
+                    </p>
+                    <p className="text-[10px] sm:text-xs text-gray-300 truncate">
+                      {track.artist}
+                    </p>
+                  </div>
+                  <div
+                    className={`absolute top-2.5 right-2.5 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border border-white/15 transition-colors ${
+                      active
+                        ? 'bg-amber-500 text-slate-950'
+                        : 'bg-black/55 backdrop-blur-md text-amber-400 group-hover:bg-amber-500 group-hover:text-slate-950'
+                    }`}
+                  >
+                    {active ? (
+                      <Pause className="w-3 h-3 fill-current" />
+                    ) : (
+                      <Play className="w-3 h-3 fill-current ml-0.5" />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
+        </div>
 
-          {/* Card 4 */}
-          <div className="p-6 rounded-3xl bg-white/80 dark:bg-midnight-900/50 border border-slate-200 dark:border-white/5 hover:border-purple-500/30 transition-all space-y-4 shadow-sm hover:shadow-md">
-            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400">
-              <Mic className="w-6 h-6" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white font-display">AI Singing Lab</h3>
-            <p className="text-xs text-slate-600 dark:text-gray-400 leading-relaxed">
-              Sing along with authentic Indian raga backing tracks and receive instant AI pitch and rhythm adjudication.
+        {/* ── Creator Moment — studio photo backdrop ── */}
+        <div className="mt-12 relative rounded-3xl overflow-hidden p-8 sm:p-12 text-center border border-black/5 dark:border-white/8 shadow-xl max-w-5xl mx-auto">
+          <img
+            src="/images/landing/creator_cta_studio.jpg"
+            alt="Recording studio"
+            className="absolute inset-0 w-full h-full object-cover brightness-[0.32] contrast-[1.08] select-none"
+            draggable={false}
+          />
+          <div className="relative z-10 text-white max-w-xl mx-auto">
+            <span className="text-[10px] font-bold tracking-[0.3em] text-amber-400 uppercase block mb-3">
+              FOR THE PEOPLE MAKING MUSIC
+            </span>
+            <h3 className="font-serif text-3xl sm:text-4xl font-normal tracking-tight mb-3 leading-tight">
+              Your sound deserves to be heard.
+            </h3>
+            <p className="text-xs sm:text-sm text-gray-300 font-light leading-relaxed mb-7">
+              Talent5 gives independent musicians a place to share original music and find listeners who care.
             </p>
-            <Link href="/karaoke" className="inline-flex items-center gap-1 text-xs text-purple-600 dark:text-purple-400 font-bold hover:underline">
-              <span>Enter Vocal Lab</span>
-              <ArrowRight className="w-3 h-3" />
+            <Link
+              href="/creator-studio/apply"
+              className="inline-flex items-center gap-2 px-7 py-3 rounded-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] tracking-widest uppercase transition-all shadow-lg hover:scale-[1.02] active:scale-95"
+            >
+              BECOME A CREATOR
+              <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* 7. RIGHTS-FIRST COMPLIANCE BANNER */}
-      <section className="py-16 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto">
-        <div className="p-8 sm:p-12 rounded-3xl bg-gradient-to-r from-teal-500/10 via-white to-amber-500/10 dark:from-midnight-900 dark:via-midnight-900/90 dark:to-teal-950/40 border border-teal-500/30 relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-8 shadow-card">
-          <div className="space-y-4 max-w-xl">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/20 text-teal-700 dark:text-teal-300 text-xs font-bold border border-teal-500/30">
-              <ShieldCheck className="w-4 h-4" />
-              <span>100% Legal & Rights-Enforced</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl font-extrabold font-display text-slate-900 dark:text-white">
-              Every Song. Every Master. Legally Verified.
-            </h2>
-            <p className="text-xs sm:text-sm text-slate-600 dark:text-gray-300 leading-relaxed">
-              Talent5 operates under strict copyright provenance. Our schema-enforced rights engine tracks direct publisher licenses, creator-owned master deeds, and statutory streaming compliance.
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center gap-4 flex-shrink-0">
-            <Link href="/login">
-              <Button variant="primary" size="lg" className="bg-teal-600 hover:bg-teal-500 text-white font-bold">
-                Join the Platform
-              </Button>
-            </Link>
-            <Link href="/admin">
-              <Button variant="ghost" size="lg" className="text-xs text-slate-700 dark:text-gray-400 hover:text-slate-950 dark:hover:text-white border border-slate-300 dark:border-white/10">
-                Command Center
-              </Button>
-            </Link>
-          </div>
+      {/* ═══════════════════════════════════════════════════════════════
+          CHAPTER 05 — FINAL CTA (high-contrast, compact)
+      ═══════════════════════════════════════════════════════════════ */}
+      <section
+        className="pt-10 pb-16 sm:pb-20 text-center max-w-3xl mx-auto px-5 sm:px-8"
+        aria-label="Call to action"
+      >
+        {/* decorative rule */}
+        <div className="flex items-center gap-4 justify-center mb-8" aria-hidden>
+          <span className="flex-1 max-w-[80px] h-px bg-white/15" />
+          <Mic2 className="w-4 h-4 text-amber-500/60" />
+          <span className="flex-1 max-w-[80px] h-px bg-white/15" />
         </div>
+
+        <span className="text-[10px] font-bold tracking-[0.28em] text-amber-400 uppercase block mb-3">
+          JOIN THE COMMUNITY
+        </span>
+
+        <h2 className="font-serif text-4xl sm:text-5xl md:text-[3.5rem] font-normal tracking-tight text-white mb-3 leading-[1.05]">
+          LISTEN DIFFERENTLY.
+        </h2>
+
+        <p className="text-sm text-white/60 max-w-xs mx-auto mb-7 font-light leading-relaxed">
+          Your next favourite artist might already be here.
+        </p>
+
+        <Link
+          href="/home"
+          className="inline-flex items-center gap-2 px-9 py-4 rounded-full bg-amber-500 text-slate-950 hover:bg-amber-400 font-bold text-[11px] tracking-widest uppercase transition-all shadow-lg hover:-translate-y-0.5 active:scale-95"
+        >
+          EXPLORE TALENT5
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
       </section>
+
+      </div>
     </div>
   );
 }

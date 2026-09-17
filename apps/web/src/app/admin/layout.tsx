@@ -20,12 +20,12 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
+import { AdminLoginGate } from '@/components/admin/AdminLoginGate';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, login } = useAuth();
-  const [isLoggingInAsAdmin, setIsLoggingInAsAdmin] = useState(false);
+  const { user } = useAuth();
 
   const isAdmin =
     user?.roles?.includes('ADMIN') ||
@@ -44,70 +44,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'System Settings', href: '/admin/settings', icon: Settings },
   ];
 
-  const handleAdminQuickLogin = async () => {
-    setIsLoggingInAsAdmin(true);
-    try {
-      const res = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: 'admin@talent5.com',
-          password: 'Talent5Admin2026!',
-        }),
-      });
-      const json = await res.json();
-      if (json.success && json.data) {
-        login(json.data.token, json.data.user);
-      }
-    } catch (err) {
-      console.error('Failed to log in as admin:', err);
-    } finally {
-      setIsLoggingInAsAdmin(false);
-    }
-  };
+  if (pathname === '/admin/login') {
+    return <>{children}</>;
+  }
 
   if (!user || !isAdmin) {
-    return (
-      <div className="min-h-screen bg-midnight-950 flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-midnight-900/90 border border-rose-500/20 rounded-2xl p-8 shadow-2xl backdrop-blur-xl text-center space-y-6">
-          <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-400">
-            <Shield className="w-8 h-8" />
-          </div>
-          <div>
-            <h2 className="text-2xl font-display font-bold text-white tracking-tight">
-              Talent5 Command Center
-            </h2>
-            <p className="text-sm text-gray-400 mt-2">
-              Restricted administrative zone. Requires verified Super Admin, Admin, or Moderator credentials.
-            </p>
-          </div>
-
-          <div className="p-4 rounded-xl bg-midnight-950 border border-white/5 text-left text-xs text-gray-400 space-y-1">
-            <p className="font-semibold text-gray-300">Default Admin Credentials:</p>
-            <p className="font-mono text-amber-400">Email: admin@talent5.com</p>
-            <p className="font-mono text-amber-400">Password: Talent5Admin2026!</p>
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <Button
-              variant="primary"
-              className="w-full justify-center bg-rose-600 hover:bg-rose-500 border-rose-500"
-              onClick={handleAdminQuickLogin}
-              disabled={isLoggingInAsAdmin}
-            >
-              <LogIn className="w-4 h-4 mr-2" />
-              {isLoggingInAsAdmin ? 'Authenticating...' : 'Sign In as Administrator'}
-            </Button>
-            <Link href="/home">
-              <Button variant="ghost" className="w-full justify-center">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Return to Public Music App
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
+    return <AdminLoginGate />;
   }
 
   return (
