@@ -3,41 +3,51 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Music, Sparkles, Search, Library } from 'lucide-react';
+import { Home, Compass, Mic2, Trophy, Library } from 'lucide-react';
 
 export const MobileNav: React.FC = () => {
   const pathname = usePathname();
 
-  // On the landing page or admin or login, keep layout minimal without app navigation
-  if (pathname === '/' || pathname.startsWith('/admin') || pathname === '/login') {
+  // Hide on admin or auth login/register screens
+  if (pathname.startsWith('/admin') || pathname === '/login' || pathname === '/register') {
     return null;
   }
 
+  // 5 CORE PILLARS FOR MOBILE
   const items = [
-    { name: 'Home', href: '/home', icon: Home },
-    { name: 'Music', href: '/music', icon: Music },
-    { name: 'Desi', href: '/desi', icon: Sparkles },
-    { name: 'Search', href: '/search', icon: Search },
+    { name: 'Home', href: '/', icon: Home },
+    { name: 'Discover', href: '/discover', icon: Compass },
+    { name: 'New Talent', href: '/new-talent', icon: Mic2, highlight: true },
+    { name: 'Contests', href: '/competitions', icon: Trophy },
     { name: 'Library', href: '/library', icon: Library },
   ];
 
   return (
-    <nav className="sm:hidden fixed bottom-16 left-0 right-0 z-30 bg-white/90 dark:bg-midnight-950/90 backdrop-blur-xl border-t border-amber-500/20 dark:border-white/10 px-2 py-1 flex items-center justify-around transition-colors duration-300">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 dark:bg-midnight-950/95 backdrop-blur-xl border-t border-black/5 dark:border-white/10 px-2 py-1.5 flex items-center justify-around transition-colors duration-300">
       {items.map((item) => {
         const Icon = item.icon;
-        const isActive = pathname === item.href;
+        const isActive =
+          item.href === '/'
+            ? pathname === '/'
+            : pathname === item.href || pathname.startsWith(`${item.href}/`);
+
         return (
           <Link
             key={item.name}
             href={item.href}
-            className={`flex flex-col items-center py-1 px-3 text-[10px] font-medium transition-colors ${
+            className={`relative flex flex-col items-center py-1 px-3 text-[10px] font-medium transition-colors ${
               isActive
                 ? 'text-amber-600 dark:text-amber-400 font-bold'
+                : item.highlight
+                ? 'text-amber-500 font-semibold'
                 : 'text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
-            <Icon className="w-4 h-4 mb-0.5" />
+            <Icon className="w-5 h-5 mb-0.5" />
             <span>{item.name}</span>
+            {item.highlight && !isActive && (
+              <span className="absolute top-1 right-2 w-1.5 h-1.5 rounded-full bg-amber-500" />
+            )}
           </Link>
         );
       })}

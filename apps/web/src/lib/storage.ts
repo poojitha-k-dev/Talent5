@@ -18,8 +18,13 @@ export const ALLOWED_MIME_TYPES = {
   'audio/mpeg': ['.mp3'],
   'audio/mp3': ['.mp3'],
   'audio/wav': ['.wav'],
+  'audio/x-wav': ['.wav'],
   'audio/flac': ['.flac'],
+  'audio/x-flac': ['.flac'],
   'audio/aac': ['.aac'],
+  'audio/m4a': ['.m4a'],
+  'audio/x-m4a': ['.m4a'],
+  'audio/mp4': ['.m4a', '.mp4'],
   'audio/ogg': ['.ogg'],
   // Video singles & performances
   'video/mp4': ['.mp4'],

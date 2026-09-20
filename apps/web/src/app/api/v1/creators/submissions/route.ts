@@ -60,29 +60,47 @@ export async function POST(req: NextRequest) {
       category = 'SINGER',
       languageId,
       genreId,
+      mood,
       audioUrl,
       videoUrl,
       coverUrl,
+      storageKey,
+      durationSeconds = 0,
       composer,
       lyricist,
       producer,
       featuredArtists,
+      lyricsText,
+      lyricsTimedData,
       ownershipDeclaration,
+      rightsDeclaration,
+      isDraft = false,
     } = await req.json();
 
-    if (!title || !languageId || !genreId || !audioUrl) {
+    if (!title) {
       return NextResponse.json(
-        { success: false, message: 'Title, Language, Genre, and Audio asset URL are required' },
+        { success: false, message: 'Song title is required.' },
         { status: 400 }
       );
     }
 
-    if (!ownershipDeclaration) {
-      return NextResponse.json(
-        { success: false, message: 'You must declare 100% original master ownership to publish on Talent5' },
-        { status: 400 }
-      );
+    if (!isDraft) {
+      if (!languageId || !genreId || !audioUrl) {
+        return NextResponse.json(
+          { success: false, message: 'Title, Language, Genre, and Audio asset URL are required for submission.' },
+          { status: 400 }
+        );
+      }
+
+      if (!ownershipDeclaration) {
+        return NextResponse.json(
+          { success: false, message: 'You must confirm original rights declaration to submit for platform review.' },
+          { status: 400 }
+        );
+      }
     }
+
+    const submissionStatus = isDraft ? 'DRAFT' : 'SUBMITTED';
 
     const client = await getClient();
     try {
@@ -91,34 +109,42 @@ export async function POST(req: NextRequest) {
       const subInsert = await client.query(
         `INSERT INTO content_submissions (
            creator_id, title, description, category, language_id, genre_id,
-           audio_url, video_url, cover_url, composer, lyricist, producer,
-           featured_artists, ownership_declaration, status
+           audio_url, video_url, cover_url, storage_key, duration_seconds, mood,
+           composer, lyricist, producer, featured_artists,
+           lyrics_text, lyrics_timed_data, ownership_declaration, rights_declaration, status
          ) VALUES (
-           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, 'SUBMITTED'
+           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21
          ) RETURNING id, title, status, created_at as "createdAt"`,
         [
           creator.id,
           title.trim(),
           description?.trim() || null,
           category,
-          parseInt(languageId, 10),
-          parseInt(genreId, 10),
-          audioUrl.trim(),
+          languageId ? parseInt(languageId, 10) : 1,
+          genreId ? parseInt(genreId, 10) : 1,
+          audioUrl?.trim() || null,
           videoUrl?.trim() || null,
           coverUrl?.trim() || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600',
+          storageKey || null,
+          durationSeconds || 0,
+          mood || null,
           composer?.trim() || creator.stage_name,
           lyricist?.trim() || creator.stage_name,
           producer?.trim() || null,
           featuredArtists || [],
-          true,
+          lyricsText || null,
+          lyricsTimedData ? JSON.stringify(lyricsTimedData) : null,
+          !!ownershipDeclaration,
+          rightsDeclaration ? JSON.stringify(rightsDeclaration) : null,
+          submissionStatus,
         ]
       );
 
       // Audit log
       await client.query(
         `INSERT INTO audit_logs (actor_id, action, entity_name, entity_id, new_state)
-         VALUES ($1, 'CONTENT_SUBMITTED', 'content_submissions', $2, $3)`,
-        [user.id, subInsert.rows[0].id, JSON.stringify({ title, category })]
+         VALUES ($1, $2, 'content_submissions', $3, $4)`,
+        [user.id, isDraft ? 'CONTENT_DRAFT_SAVED' : 'CONTENT_SUBMITTED', subInsert.rows[0].id, JSON.stringify(subInsert.rows[0])]
       );
 
       await client.query('COMMIT');

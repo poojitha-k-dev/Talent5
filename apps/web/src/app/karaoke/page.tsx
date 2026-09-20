@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   Mic,
   MicOff,
@@ -16,66 +17,50 @@ import {
   Sliders,
   Send,
   Flame,
+  Search,
+  FileText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { formatDuration } from '@talent5/utils';
 
-interface BackingTrack {
+interface TrackItem {
   id: string;
   title: string;
-  genre: string;
-  language: string;
+  artistName?: string;
+  genreName?: string;
+  languageName?: string;
   audioUrl: string;
-  lyrics: string[];
+  artworkUrl?: string;
+  durationSeconds?: number;
 }
 
-const SAMPLE_TRACKS: BackingTrack[] = [
-  {
-    id: 'track-1',
-    title: 'Tum Bin (Acoustic Sufi Backing)',
-    genre: 'Sufi & Ghazal',
-    language: 'Hindi',
-    audioUrl: 'https://cdn.freesound.org/previews/557/557194_11861866-lq.mp3',
-    lyrics: [
-      'Tum bin mann kaha lage re saawariya...',
-      'Suni yeh naina dhoondhe teri galiya...',
-      'Chupke se aake meri saanso mein bas jaa...',
-      'Tere bina yeh jeevan adhura sa lage...',
-    ],
-  },
-  {
-    id: 'track-2',
-    title: 'Chennai Rain Raga (Carnatic Ambient)',
-    genre: 'Carnatic & Classical',
-    language: 'Tamil',
-    audioUrl: 'https://cdn.freesound.org/previews/612/612608_11861866-lq.mp3',
-    lyrics: [
-      'Mazhai pozhiyum kaalaiyil un ninaivu...',
-      'Kaatrodu kalanthu paadum raagam idhuvo...',
-      'Nee ennai serum neram paarthen...',
-      'Ullathil paayum amudham nee...',
-    ],
-  },
-  {
-    id: 'track-3',
-    title: 'Desi Street Cypher Beat (85 BPM)',
-    genre: 'Desi Hip-Hop',
-    language: 'Punjabi',
-    audioUrl: 'https://cdn.freesound.org/previews/665/665183_11861866-lq.mp3',
-    lyrics: [
-      'Pind di galiyan ch gunjdi sada...',
-      'Asi ban ke toofan chha gaye haan...',
-      'Desi blood sadda agg vangra...',
-      'Rab naal jurhi saddi dastaan...',
-    ],
-  },
-];
+interface LyricLine {
+  id?: string;
+  sequenceOrder: number;
+  startTimeMs: number;
+  endTimeMs: number;
+  text: string;
+}
 
-export default function KaraokeSingingStudioPage() {
-  const [selectedTrack, setSelectedTrack] = useState<BackingTrack>(SAMPLE_TRACKS[0]);
-  const [isPlayingBacking, setIsPlayingBacking] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
-  const [activeLyricIndex, setActiveLyricIndex] = useState(0);
+function KaraokeStudioContent() {
+  const searchParams = useSearchParams();
+  const initialSongId = searchParams.get('song') || '';
+
+  const [tracks, setTracks] = useState<TrackItem[]>([]);
+  const [selectedTrack, setSelectedTrack] = useState<TrackItem | null>(null);
+  const [lyricsLines, setLyricsLines] = useState<LyricLine[]>([]);
+  const [lyricsLoading, setLyricsLoading] = useState<boolean>(false);
+  const [activeLyricIndex, setActiveLyricIndex] = useState<number>(0);
+
+  const [isPlayingBacking, setIsPlayingBacking] = useState<boolean>(false);
+  const [isRecording, setIsRecording] = useState<boolean>(false);
+  const [currentTime, setCurrentTime] = useState<number>(0);
+  const [duration, setDuration] = useState<number>(0);
+  const [selectedLang, setSelectedLang] = useState<string>('All');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const activeLineRef = useRef<HTMLDivElement | null>(null);
 
   // AI Scoring State
   const [analyzing, setAnalyzing] = useState(false);
@@ -88,9 +73,115 @@ export default function KaraokeSingingStudioPage() {
     badges: string[];
   } | null>(null);
 
+  // 1. Fetch real songs from catalog
   useEffect(() => {
-    const audio = new Audio(selectedTrack.audioUrl);
-    setAudioEl(audio);
+    const fetchCatalog = async () => {
+      try {
+        const res = await fetch('/api/v1/catalog/songs?limit=80&sort=popularity');
+        if (res.ok) {
+          const json = await res.json();
+          const items: TrackItem[] = json.data.songs || [];
+          setTracks(items);
+
+          if (items.length > 0) {
+            const initial = initialSongId
+              ? items.find((s) => s.id === initialSongId) || items[0]
+              : items[0];
+            setSelectedTrack(initial);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching karaoke tracks:', err);
+      }
+    };
+    fetchCatalog();
+  }, [initialSongId]);
+
+  // 2. Load synchronized lyrics for selected track
+  useEffect(() => {
+    if (!selectedTrack) return;
+
+    setLyricsLoading(true);
+    let isMounted = true;
+
+    const fetchLyrics = async () => {
+      try {
+        const res = await fetch(`/api/v1/lyrics/${selectedTrack.id}`);
+        if (res.ok && isMounted) {
+          const json = await res.json();
+          if (json.data?.lines && json.data.lines.length > 0) {
+            setLyricsLines(json.data.lines);
+            setActiveLyricIndex(0);
+          } else {
+            setLyricsLines([]);
+          }
+        } else if (isMounted) {
+          setLyricsLines([]);
+        }
+      } catch (err) {
+        if (isMounted) setLyricsLines([]);
+      } finally {
+        if (isMounted) setLyricsLoading(false);
+      }
+    };
+
+    fetchLyrics();
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedTrack]);
+
+  // 3. Setup Audio element and real-time synchronization
+  useEffect(() => {
+    if (!selectedTrack) return;
+
+    const audio = new Audio();
+    const audioSrc = selectedTrack.audioUrl.startsWith('http')
+      ? selectedTrack.audioUrl
+      : `${window.location.origin}${selectedTrack.audioUrl.startsWith('/') ? '' : '/'}${selectedTrack.audioUrl}`;
+    audio.src = audioSrc;
+    audio.preload = 'auto';
+    audioRef.current = audio;
+
+    const updateTime = () => {
+      const cTime = audio.currentTime;
+      setCurrentTime(cTime);
+
+      if (audio.duration && !isNaN(audio.duration) && isFinite(audio.duration)) {
+        setDuration(audio.duration);
+      }
+
+      // Synchronize with lyricsLines
+      if (lyricsLines.length > 0) {
+        const currentMs = cTime * 1000;
+        let lineIdx = -1;
+        if (currentMs <= lyricsLines[0].startTimeMs) {
+          lineIdx = 0;
+        } else if (currentMs >= lyricsLines[lyricsLines.length - 1].endTimeMs) {
+          lineIdx = lyricsLines.length - 1;
+        } else {
+          lineIdx = lyricsLines.findIndex(
+            (l) => currentMs >= l.startTimeMs && currentMs <= l.endTimeMs
+          );
+          if (lineIdx === -1) {
+            for (let i = lyricsLines.length - 1; i >= 0; i--) {
+              if (currentMs >= lyricsLines[i].startTimeMs) {
+                lineIdx = i;
+                break;
+              }
+            }
+          }
+        }
+        if (lineIdx !== -1) {
+          setActiveLyricIndex(lineIdx);
+        }
+      }
+    };
+
+    audio.ontimeupdate = updateTime;
+    audio.onloadedmetadata = () => {
+      if (audio.duration) setDuration(audio.duration);
+    };
     audio.onended = () => {
       setIsPlayingBacking(false);
       handleStopRecording();
@@ -98,43 +189,92 @@ export default function KaraokeSingingStudioPage() {
 
     return () => {
       audio.pause();
+      audio.src = '';
     };
-  }, [selectedTrack]);
+  }, [selectedTrack, lyricsLines]);
 
-  // Lyric progress simulation
+  // High-frequency 100ms sync interval during playback
   useEffect(() => {
     if (!isPlayingBacking) return;
     const interval = setInterval(() => {
-      setActiveLyricIndex((prev) => (prev + 1) % selectedTrack.lyrics.length);
-    }, 4500);
+      const audio = audioRef.current;
+      if (!audio || audio.paused) return;
+
+      const cTime = audio.currentTime;
+      setCurrentTime(cTime);
+
+      if (lyricsLines.length > 0) {
+        const currentMs = cTime * 1000;
+        let lineIdx = -1;
+        if (currentMs <= lyricsLines[0].startTimeMs) {
+          lineIdx = 0;
+        } else if (currentMs >= lyricsLines[lyricsLines.length - 1].endTimeMs) {
+          lineIdx = lyricsLines.length - 1;
+        } else {
+          lineIdx = lyricsLines.findIndex(
+            (l) => currentMs >= l.startTimeMs && currentMs <= l.endTimeMs
+          );
+          if (lineIdx === -1) {
+            for (let i = lyricsLines.length - 1; i >= 0; i--) {
+              if (currentMs >= lyricsLines[i].startTimeMs) {
+                lineIdx = i;
+                break;
+              }
+            }
+          }
+        }
+        if (lineIdx !== -1) {
+          setActiveLyricIndex(lineIdx);
+        }
+      }
+    }, 100);
+
     return () => clearInterval(interval);
-  }, [isPlayingBacking, selectedTrack]);
+  }, [isPlayingBacking, lyricsLines]);
+
+  // Auto-scroll teleprompter to active line
+  useEffect(() => {
+    if (activeLineRef.current) {
+      activeLineRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }
+  }, [activeLyricIndex]);
 
   const handleTogglePlay = () => {
-    if (!audioEl) return;
+    const audio = audioRef.current;
+    if (!audio) return;
     if (isPlayingBacking) {
-      audioEl.pause();
+      audio.pause();
       setIsPlayingBacking(false);
     } else {
-      audioEl.play();
-      setIsPlayingBacking(true);
+      audio.play().then(() => setIsPlayingBacking(true)).catch(console.warn);
     }
+  };
+
+  const handleSeek = (seconds: number) => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = seconds;
+    setCurrentTime(seconds);
   };
 
   const handleStartRecording = () => {
     setIsRecording(true);
     setScoreResult(null);
-    if (audioEl) {
-      audioEl.currentTime = 0;
-      audioEl.play();
-      setIsPlayingBacking(true);
+    const audio = audioRef.current;
+    if (audio) {
+      audio.currentTime = 0;
+      audio.play().then(() => setIsPlayingBacking(true)).catch(console.warn);
     }
   };
 
   const handleStopRecording = () => {
     setIsRecording(false);
-    if (audioEl) {
-      audioEl.pause();
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
       setIsPlayingBacking(false);
     }
 
@@ -154,12 +294,26 @@ export default function KaraokeSingingStudioPage() {
         expressionScore: expression,
         verdict:
           total >= 94
-            ? 'Virtuoso Desi Masterpiece! Pitch accuracy and vocal control are concert-grade.'
-            : 'Superb Performance! Soulful tone modulation with authentic regional phrasing.',
-        badges: ['Pitch Perfect', 'Sufi Resonance', 'Tournament Ready'],
+            ? 'Virtuoso Desi Masterpiece! Pitch accuracy and microtonal vocal control are concert-grade.'
+            : 'Superb Performance! Soulful regional phrasing with emotive breath control and accurate taal.',
+        badges: ['Pitch Perfect', 'Raga Resonance', 'Tournament Ready'],
       });
     }, 2000);
   };
+
+  // Filter tracks
+  const languagesList = ['All', 'Telugu', 'Kannada', 'Tamil', 'Hindi', 'Bengali', 'Punjabi', 'Gujarati', 'Malayalam', 'Marathi'];
+  const filteredTracks = tracks.filter((t) => {
+    const matchesLang = selectedLang === 'All' || t.languageName?.toLowerCase() === selectedLang.toLowerCase();
+    const matchesQuery =
+      !searchQuery.trim() ||
+      t.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (t.artistName && t.artistName.toLowerCase().includes(searchQuery.toLowerCase()));
+    return matchesLang && matchesQuery;
+  });
+
+  const effectiveDuration = duration > 0 ? duration : (selectedTrack?.durationSeconds || 0);
+  const progressPercent = effectiveDuration > 0 ? (currentTime / effectiveDuration) * 100 : 0;
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
@@ -168,133 +322,247 @@ export default function KaraokeSingingStudioPage() {
         <div>
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30 mb-2">
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>AI Vocal Lab & Karaoke Studio</span>
+            <span>AI Vocal Lab & Karaoke Teleprompter</span>
           </div>
           <h1 className="text-3xl sm:text-4xl font-extrabold font-display text-white tracking-tight">
             Sing with Synchronized Desi Backing Tracks
           </h1>
           <p className="text-xs sm:text-sm text-gray-400 mt-1">
-            Sing original compositions, calibrate pitch with real-time teleprompter lyrics, and receive AI vocal adjudication.
+            Sing authentic compositions across all 9 Indian languages, follow real-time teleprompter cues, and receive AI vocal adjudication.
           </p>
         </div>
 
-        <Link href="/home">
-          <Button variant="ghost" size="sm" className="text-xs text-gray-400 hover:text-white">
-            <ArrowLeft className="w-3.5 h-3.5 mr-1.5" />
-            Back to Music Hub
+        <Link href="/music">
+          <Button variant="ghost" size="sm" className="text-gray-300 hover:text-white border border-white/10">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Music Catalog
           </Button>
         </Link>
       </div>
 
-      {/* Track Selector */}
-      <div className="space-y-3">
-        <label className="text-xs font-bold uppercase tracking-wider text-gray-400 block">
-          Select Master Backing Track:
-        </label>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {SAMPLE_TRACKS.map((tr) => (
+      {/* Track Selection Section */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <h2 className="text-lg font-bold font-display text-white flex items-center gap-2">
+            <span>Select Song from Catalog</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono">
+              {filteredTracks.length} Tracks
+            </span>
+          </h2>
+
+          {/* Search box */}
+          <div className="relative w-full sm:w-64">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search title or artist..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-midnight-900 border border-white/10 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-amber-500"
+            />
+          </div>
+        </div>
+
+        {/* Language Filter Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+          {languagesList.map((lang) => (
+            <button
+              key={lang}
+              onClick={() => setSelectedLang(lang)}
+              className={`px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all ${
+                selectedLang === lang
+                  ? 'bg-amber-500 text-midnight-950 shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+                  : 'bg-midnight-900/80 text-slate-300 hover:text-white hover:bg-white/10 border border-white/5'
+              }`}
+            >
+              {lang}
+            </button>
+          ))}
+        </div>
+
+        {/* Tracks horizontal grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 max-h-56 overflow-y-auto p-1">
+          {filteredTracks.map((tr) => (
             <button
               key={tr.id}
               onClick={() => {
-                if (isPlayingBacking) audioEl?.pause();
+                if (selectedTrack?.id === tr.id) return;
+                const audio = audioRef.current;
+                if (audio) audio.pause();
                 setIsPlayingBacking(false);
                 setIsRecording(false);
                 setSelectedTrack(tr);
                 setScoreResult(null);
               }}
-              className={`p-4 rounded-2xl border text-left transition-all ${
-                selectedTrack.id === tr.id
-                  ? 'bg-amber-500/10 border-amber-500 text-white shadow-saffronGlow'
+              className={`p-3 rounded-2xl border text-left transition-all flex flex-col justify-between gap-2 ${
+                selectedTrack?.id === tr.id
+                  ? 'bg-amber-500/15 border-amber-500 text-white shadow-saffronGlow'
                   : 'bg-midnight-900/60 border-white/5 text-gray-400 hover:text-white hover:bg-white/5'
               }`}
             >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                  {tr.language} • {tr.genre}
+              <div className="flex items-center justify-between w-full">
+                <span className="text-[11px] font-bold text-amber-400 uppercase tracking-wider">
+                  {tr.languageName}
                 </span>
-                {selectedTrack.id === tr.id && <CheckCircle2 className="w-4 h-4 text-amber-400" />}
+                {selectedTrack?.id === tr.id && <CheckCircle2 className="w-4 h-4 text-amber-400 flex-shrink-0" />}
               </div>
-              <h3 className="text-sm font-bold text-white truncate">{tr.title}</h3>
+              <div>
+                <h3 className="text-sm font-bold text-white truncate">{tr.title}</h3>
+                <p className="text-xs text-slate-400 truncate">{tr.artistName || 'Talent5 Artist'}</p>
+              </div>
             </button>
           ))}
         </div>
       </div>
 
       {/* Live Studio Teleprompter & Recording Canvas */}
-      <div className="p-8 sm:p-12 rounded-3xl bg-gradient-to-b from-midnight-900 to-midnight-950 border border-amber-500/20 shadow-2xl relative overflow-hidden text-center space-y-8">
-        <div className="space-y-2">
-          <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-white/5 text-gray-400 border border-white/10 uppercase tracking-widest">
-            Lyrics Teleprompter
-          </span>
-          <div className="min-h-[140px] flex flex-col items-center justify-center space-y-3 pt-4">
-            {selectedTrack.lyrics.map((line, idx) => (
-              <p
-                key={idx}
-                className={`text-lg sm:text-2xl font-display transition-all duration-300 ${
-                  activeLyricIndex === idx && isPlayingBacking
-                    ? 'text-amber-400 font-extrabold scale-110 drop-shadow-[0_0_12px_rgba(245,158,11,0.5)]'
-                    : 'text-gray-500 font-medium scale-95'
+      {selectedTrack && (
+        <div className="p-6 sm:p-10 rounded-3xl bg-gradient-to-b from-midnight-900 to-midnight-950 border border-amber-500/20 shadow-2xl relative overflow-hidden space-y-6">
+          {/* Header of Active Track */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl sm:text-2xl font-bold font-display text-white">{selectedTrack.title}</h2>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  {selectedTrack.languageName}
+                </span>
+                <span className="text-xs font-mono text-slate-400">
+                  {lyricsLines.length} Synchronized Lines
+                </span>
+              </div>
+              <p className="text-xs text-amber-400 mt-0.5">{selectedTrack.artistName || 'Talent5 Artist'}</p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-mono text-slate-300 bg-white/5 px-3 py-1 rounded-full border border-white/10">
+                Line <strong className="text-amber-400 font-bold">{activeLyricIndex + 1}</strong> of {lyricsLines.length || 1}
+              </span>
+            </div>
+          </div>
+
+          {/* Interactive Teleprompter Box */}
+          <div className="bg-midnight-950/90 border border-white/10 rounded-2xl p-6 relative">
+            <div className="text-xs font-mono uppercase tracking-widest text-amber-400/80 mb-3 flex items-center justify-between">
+              <span>Live Teleprompter Stream</span>
+              <span>Click line to jump</span>
+            </div>
+
+            {lyricsLoading ? (
+              <div className="py-16 text-center space-y-2">
+                <RefreshCw className="w-8 h-8 text-amber-400 animate-spin mx-auto" />
+                <p className="text-sm text-slate-300">Synchronizing Teleprompter Cues...</p>
+              </div>
+            ) : lyricsLines.length > 0 ? (
+              <div className="max-h-72 overflow-y-auto space-y-3 px-2 py-4">
+                {lyricsLines.map((line, idx) => {
+                  const isActive = activeLyricIndex === idx;
+                  const isPassed = idx < activeLyricIndex;
+
+                  return (
+                    <div
+                      key={line.id || idx}
+                      ref={isActive ? activeLineRef : null}
+                      onClick={() => handleSeek(line.startTimeMs / 1000)}
+                      className={`cursor-pointer transition-all duration-300 px-5 py-3 rounded-2xl flex items-center justify-between gap-4 text-center select-none ${
+                        isActive
+                          ? 'text-amber-300 font-extrabold text-lg sm:text-2xl scale-105 bg-amber-500/20 border-2 border-amber-400/60 shadow-[0_0_25px_rgba(245,158,11,0.35)]'
+                          : isPassed
+                          ? 'text-slate-400 font-medium text-sm sm:text-base opacity-75 hover:opacity-100 hover:bg-white/5'
+                          : 'text-slate-200 font-medium text-sm sm:text-base hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <span className="flex-1">{line.text}</span>
+                      <span className="text-xs font-mono opacity-50 flex-shrink-0">
+                        {formatDuration(Math.floor(line.startTimeMs / 1000))}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="py-12 text-center text-slate-400 text-sm">
+                No synchronized lyrics available for this track yet.
+              </div>
+            )}
+          </div>
+
+          {/* Audio Scrubber & Progress */}
+          <div className="flex items-center gap-3 text-xs text-slate-300 font-mono">
+            <span className="w-12 text-right">{formatDuration(currentTime)}</span>
+            <div className="flex-1 relative flex items-center group cursor-pointer py-1">
+              <div className="w-full h-2 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={effectiveDuration || 100}
+                step={0.1}
+                value={currentTime}
+                onChange={(e) => handleSeek(parseFloat(e.target.value))}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              />
+            </div>
+            <span className="w-12">{formatDuration(effectiveDuration)}</span>
+          </div>
+
+          {/* Audio Frequency Bar Visualizer */}
+          <div className="flex items-center justify-center gap-1.5 h-12">
+            {Array.from({ length: 28 }).map((_, i) => (
+              <div
+                key={i}
+                className={`w-1.5 rounded-full transition-all duration-150 ${
+                  isRecording || isPlayingBacking
+                    ? 'bg-gradient-to-t from-amber-500 to-teal-400 animate-pulse'
+                    : 'bg-white/10'
                 }`}
-              >
-                {line}
-              </p>
+                style={{
+                  height: isRecording || isPlayingBacking ? `${Math.floor(Math.random() * 38) + 8}px` : '6px',
+                  animationDelay: `${i * 35}ms`,
+                }}
+              />
             ))}
           </div>
-        </div>
 
-        {/* Audio Frequency Bar Visualizer */}
-        <div className="flex items-center justify-center gap-1.5 h-12">
-          {Array.from({ length: 24 }).map((_, i) => (
-            <div
-              key={i}
-              className={`w-1.5 rounded-full transition-all duration-150 ${
-                isRecording || isPlayingBacking
-                  ? 'bg-gradient-to-t from-amber-500 to-teal-400 animate-pulse'
-                  : 'bg-white/10'
-              }`}
-              style={{
-                height: (isRecording || isPlayingBacking) ? `${Math.floor(Math.random() * 38) + 8}px` : '6px',
-                animationDelay: `${i * 40}ms`,
-              }}
-            />
-          ))}
-        </div>
-
-        {/* Action Controls */}
-        <div className="flex items-center justify-center gap-5 pt-4">
-          <Button
-            variant="ghost"
-            size="lg"
-            onClick={handleTogglePlay}
-            className="text-white border border-white/10 hover:bg-white/10"
-          >
-            {isPlayingBacking ? <Pause className="w-5 h-5 mr-2" /> : <Play className="w-5 h-5 mr-2" />}
-            {isPlayingBacking ? 'Pause Backing' : 'Test Backing Track'}
-          </Button>
-
-          {!isRecording ? (
+          {/* Action Controls */}
+          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
             <Button
-              variant="primary"
+              variant="ghost"
               size="lg"
-              onClick={handleStartRecording}
-              className="bg-rose-600 hover:bg-rose-500 border-rose-500 font-bold shadow-lg text-white px-8"
+              onClick={handleTogglePlay}
+              className="text-white border border-white/15 hover:bg-white/10"
             >
-              <Mic className="w-5 h-5 mr-2" />
-              Record Your Voice
+              {isPlayingBacking ? <Pause className="w-5 h-5 mr-2" /> : <Play className="w-5 h-5 mr-2" />}
+              {isPlayingBacking ? 'Pause Backing' : 'Play Backing Track'}
             </Button>
-          ) : (
-            <Button
-              variant="danger"
-              size="lg"
-              onClick={handleStopRecording}
-              className="bg-rose-700 hover:bg-rose-600 text-white font-bold animate-pulse px-8"
-            >
-              <MicOff className="w-5 h-5 mr-2" />
-              Stop & Evaluate Take
-            </Button>
-          )}
+
+            {!isRecording ? (
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={handleStartRecording}
+                className="bg-rose-600 hover:bg-rose-500 border-rose-500 font-bold shadow-lg text-white px-8"
+              >
+                <Mic className="w-5 h-5 mr-2" />
+                Record Your Voice
+              </Button>
+            ) : (
+              <Button
+                variant="danger"
+                size="lg"
+                onClick={handleStopRecording}
+                className="bg-rose-700 hover:bg-rose-600 text-white font-bold animate-pulse px-8"
+              >
+                <MicOff className="w-5 h-5 mr-2" />
+                Stop & Evaluate Take
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* AI Score Card Modal / Banner */}
       {analyzing && (
@@ -319,7 +587,7 @@ export default function KaraokeSingingStudioPage() {
               <p className="text-xs text-gray-300 mt-1 max-w-xl">{scoreResult.verdict}</p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               {scoreResult.badges.map((b) => (
                 <span
                   key={b}
@@ -390,5 +658,20 @@ export default function KaraokeSingingStudioPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function KaraokeSingingStudioPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-6xl mx-auto px-4 py-20 text-center">
+          <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs text-gray-400">Loading AI Karaoke Studio...</p>
+        </div>
+      }
+    >
+      <KaraokeStudioContent />
+    </Suspense>
   );
 }

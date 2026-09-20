@@ -21,8 +21,35 @@ export async function POST(req: NextRequest) {
       fs.mkdirSync(dir, { recursive: true });
     }
 
-    const buffer = Buffer.from(await req.arrayBuffer());
-    fs.writeFileSync(filePath, buffer);
+    if (!req.body) {
+      return NextResponse.json(
+        { success: false, error: { code: 'EMPTY_BODY', message: 'No file body payload received.' } },
+        { status: 400 }
+      );
+    }
+
+    // Stream directly to disk using standard WHATWG stream chunks to prevent memory buffering
+    const reader = req.body.getReader();
+    const fileWriteStream = fs.createWriteStream(filePath);
+    let bytesWritten = 0;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (value) {
+          bytesWritten += value.byteLength || value.length;
+          fileWriteStream.write(Buffer.from(value));
+        }
+      }
+    } finally {
+      fileWriteStream.end();
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      fileWriteStream.on('finish', () => resolve());
+      fileWriteStream.on('error', (err) => reject(err));
+    });
 
     const publicUrl = `/api/v1/media/stream/${encodeURIComponent(key)}`;
 
@@ -30,7 +57,7 @@ export async function POST(req: NextRequest) {
       success: true,
       data: {
         key,
-        sizeBytes: buffer.length,
+        sizeBytes: bytesWritten,
         publicUrl,
       },
     });

@@ -206,33 +206,33 @@ export const RagaSoundscapeExplorer: React.FC = () => {
                     {selectedRaga.prahar}
                   </span>
                   <h3 className="text-xl font-bold font-display text-slate-900 dark:text-white mt-0.5">
-                    {selectedRaga.name} <span className="text-slate-400 dark:text-gray-500 font-normal">({selectedRaga.devanagari})</span>
+                    {selectedRaga.name} <span className="text-slate-500 dark:text-slate-300 font-semibold">({selectedRaga.devanagari})</span>
                   </h3>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-gray-400">
+                <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-200 font-medium">
                   <Clock className="w-3.5 h-3.5 text-amber-500" />
                   <span>{selectedRaga.timeSlot}</span>
                 </div>
               </div>
 
-              <div className="p-3.5 rounded-xl bg-amber-500/10 dark:bg-white/5 border border-amber-500/20 text-xs text-slate-800 dark:text-gray-200 flex items-center gap-3">
+              <div className="p-3.5 rounded-xl bg-amber-500/10 dark:bg-white/5 border border-amber-500/20 text-xs text-slate-900 dark:text-slate-100 flex items-center gap-3 font-medium">
                 <Sparkles className="w-4 h-4 text-amber-500 flex-shrink-0" />
                 <span>
-                  <strong>Sonic Mood:</strong> {selectedRaga.emotion}
+                  <strong className="text-amber-600 dark:text-amber-400 font-bold">Sonic Mood:</strong> {selectedRaga.emotion}
                 </span>
               </div>
             </div>
 
             {/* Acoustic Instruments Tags */}
             <div>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-gray-400 block mb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600 dark:text-slate-300 block mb-2">
                 Acoustic Foundations
               </span>
               <div className="flex flex-wrap gap-2">
                 {selectedRaga.instruments.map((inst) => (
                   <span
                     key={inst}
-                    className="px-3 py-1 rounded-full text-xs font-medium bg-slate-100 dark:bg-midnight-800 text-slate-700 dark:text-gray-300 border border-slate-200 dark:border-white/10"
+                    className="px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 dark:bg-midnight-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-white/10"
                   >
                     ✦ {inst}
                   </span>
@@ -263,7 +263,7 @@ export const RagaSoundscapeExplorer: React.FC = () => {
               <h4 className="text-sm font-bold text-slate-900 dark:text-white truncate">
                 {selectedRaga.sampleSong.title}
               </h4>
-              <p className="text-xs text-slate-600 dark:text-gray-400 truncate mt-0.5">
+              <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 truncate mt-0.5">
                 {selectedRaga.sampleSong.artistName}
               </p>
             </div>

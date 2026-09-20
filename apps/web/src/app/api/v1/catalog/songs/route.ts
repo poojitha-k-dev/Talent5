@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     const artistId = searchParams.get('artistId');
     const search = searchParams.get('search');
     const sortBy = searchParams.get('sortBy') || 'popularity';
-    const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 50);
+    const limit = Math.min(parseInt(searchParams.get('limit') || '60', 10), 300);
     const page = Math.max(parseInt(searchParams.get('page') || '1', 10), 1);
     const offset = (page - 1) * limit;
 

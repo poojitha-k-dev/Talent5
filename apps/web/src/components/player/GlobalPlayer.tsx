@@ -98,12 +98,16 @@ export const GlobalPlayer: React.FC = () => {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
           {/* 1. Track Info */}
           <div className="flex items-center gap-3 w-full sm:w-1/4 min-w-0">
-            <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-200 dark:bg-midnight-800 flex-shrink-0 shadow-md">
+            <Link
+              href={`/song/${currentSong.id}`}
+              className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-200 dark:bg-midnight-800 flex-shrink-0 shadow-md block group/art"
+              title="Open Track Page"
+            >
               {currentSong.artworkUrl ? (
                 <img
                   src={currentSong.artworkUrl}
                   alt={currentSong.title}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover group-hover/art:scale-105 transition-transform"
                 />
               ) : (
                 <div className="w-full h-full flex items-center justify-center text-amber-500 font-display font-bold text-lg">
@@ -118,12 +122,12 @@ export const GlobalPlayer: React.FC = () => {
                   <div className="w-0.5 bg-amber-400 rounded-full animate-wave-4" />
                 </div>
               )}
-            </div>
+            </Link>
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <Link
-                  href={`/music/${currentSong.slug || currentSong.id}`}
+                  href={`/song/${currentSong.id}`}
                   className="text-sm font-semibold text-slate-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 truncate block transition-colors"
                 >
                   {currentSong.title}
@@ -135,20 +139,33 @@ export const GlobalPlayer: React.FC = () => {
                   <ShieldCheck className="w-3.5 h-3.5" />
                 </span>
               </div>
-              <p className="text-xs text-slate-500 dark:text-gray-400 truncate">
+              <Link
+                href={`/artist/${currentSong.artistId}`}
+                className="text-xs text-slate-500 dark:text-gray-400 hover:text-slate-900 dark:hover:text-white hover:underline truncate block"
+              >
                 {currentSong.artistName || 'Talent5 Artist'}
-              </p>
+              </Link>
             </div>
 
             <button
               onClick={handleLike}
               title="Like & Support Creator"
               className={`p-2 rounded-full transition-all flex items-center gap-1 flex-shrink-0 ${
-                isLiked ? 'text-rose-500' : 'text-slate-400 hover:text-rose-500 dark:text-gray-400 dark:hover:text-rose-400'
+                isLiked ? 'text-rose-500' : 'text-slate-600 hover:text-rose-500 dark:text-gray-300 dark:hover:text-rose-400'
               }`}
             >
-              <Heart className={`w-4 h-4 ${isLiked ? 'fill-current' : ''}`} />
-              <span className="text-[10px] font-medium">{likeCount > 0 ? likeCount : ''}</span>
+              <Heart className={`w-4 h-4 ${isLiked ? 'fill-current text-rose-500' : ''}`} />
+              <span className="text-[10px] font-bold">{likeCount > 0 ? likeCount : ''}</span>
+            </button>
+
+            {/* Prominent Lyrics button visible on all screen sizes */}
+            <button
+              onClick={() => setIsLyricsOpen(true)}
+              title="Open Synchronized Lyrics"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-600 dark:text-amber-300 font-bold text-xs transition-all flex-shrink-0 shadow-sm"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Lyrics</span>
             </button>
           </div>
 
@@ -159,7 +176,7 @@ export const GlobalPlayer: React.FC = () => {
                 onClick={toggleShuffle}
                 title="Shuffle"
                 className={`p-1.5 transition-colors ${
-                  isShuffle ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 hover:text-slate-700 dark:text-gray-400 dark:hover:text-white'
+                  isShuffle ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-slate-600 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white'
                 }`}
               >
                 <Shuffle className="w-4 h-4" />
@@ -167,8 +184,8 @@ export const GlobalPlayer: React.FC = () => {
 
               <button
                 onClick={prevTrack}
-                title="Previous"
-                className="p-1.5 text-slate-600 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white transition-colors"
+                title="Previous Track"
+                className="p-1.5 text-slate-700 hover:text-slate-950 dark:text-gray-200 dark:hover:text-white transition-colors"
               >
                 <SkipBack className="w-4 h-4" />
               </button>
@@ -176,7 +193,7 @@ export const GlobalPlayer: React.FC = () => {
               <button
                 onClick={togglePlay}
                 title={isPlaying ? 'Pause' : 'Play'}
-                className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 flex items-center justify-center text-midnight-950 font-bold shadow-saffronGlow transition-transform active:scale-95"
+                className="w-10 h-10 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 flex items-center justify-center text-midnight-950 font-extrabold shadow-saffronGlow transition-transform active:scale-95"
               >
                 {isPlaying ? (
                   <Pause className="w-5 h-5 fill-current" />
@@ -187,8 +204,8 @@ export const GlobalPlayer: React.FC = () => {
 
               <button
                 onClick={nextTrack}
-                title="Next"
-                className="p-1.5 text-slate-600 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white transition-colors"
+                title="Next Track"
+                className="p-1.5 text-slate-700 hover:text-slate-950 dark:text-gray-200 dark:hover:text-white transition-colors"
               >
                 <SkipForward className="w-4 h-4" />
               </button>
@@ -197,7 +214,7 @@ export const GlobalPlayer: React.FC = () => {
                 onClick={toggleRepeat}
                 title={`Repeat: ${repeatMode}`}
                 className={`p-1.5 transition-colors ${
-                  repeatMode !== 'off' ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400 hover:text-slate-700 dark:text-gray-400 dark:hover:text-white'
+                  repeatMode !== 'off' ? 'text-amber-600 dark:text-amber-400 font-bold' : 'text-slate-600 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white'
                 }`}
               >
                 {repeatMode === 'one' ? (
@@ -209,10 +226,10 @@ export const GlobalPlayer: React.FC = () => {
             </div>
 
             {/* Seek Bar */}
-            <div className="w-full flex items-center gap-2 text-[11px] text-slate-500 dark:text-gray-400 select-none">
-              <span className="w-8 text-right font-mono">{formatDuration(currentTime)}</span>
+            <div className="w-full flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 font-medium select-none">
+              <span className="w-9 text-right font-mono font-semibold">{formatDuration(currentTime)}</span>
               <div className="flex-1 relative flex items-center group cursor-pointer py-1">
-                <div className="w-full h-1 bg-slate-200 dark:bg-white/15 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-slate-300 dark:bg-white/20 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full"
                     style={{ width: `${progressPercent}%` }}
@@ -228,24 +245,16 @@ export const GlobalPlayer: React.FC = () => {
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 />
               </div>
-              <span className="w-8 font-mono">{formatDuration(effectiveDuration)}</span>
+              <span className="w-9 font-mono font-semibold">{formatDuration(effectiveDuration)}</span>
             </div>
           </div>
 
           {/* 3. Volume & Features (Lyrics, Queue) */}
           <div className="hidden sm:flex items-center justify-end gap-3 w-1/4">
             <button
-              onClick={() => setIsLyricsOpen(true)}
-              title="Synchronized Lyrics"
-              className="p-2 text-slate-400 hover:text-amber-600 dark:text-gray-400 dark:hover:text-amber-400 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-white/5"
-            >
-              <FileText className="w-4 h-4" />
-            </button>
-
-            <button
               onClick={() => setIsQueueOpen(true)}
               title="Play Queue"
-              className="p-2 text-slate-400 hover:text-amber-600 dark:text-gray-400 dark:hover:text-amber-400 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-white/5"
+              className="p-2 text-slate-600 hover:text-amber-600 dark:text-gray-300 dark:hover:text-amber-400 transition-colors rounded-full hover:bg-slate-100 dark:hover:bg-white/10"
             >
               <ListMusic className="w-4 h-4" />
             </button>
@@ -254,7 +263,7 @@ export const GlobalPlayer: React.FC = () => {
               <button
                 onClick={toggleMute}
                 title={isMuted ? 'Unmute' : 'Mute'}
-                className="text-slate-400 hover:text-slate-700 dark:text-gray-400 dark:hover:text-white"
+                className="text-slate-600 hover:text-slate-900 dark:text-gray-300 dark:hover:text-white"
               >
                 {isMuted || volume === 0 ? (
                   <VolumeX className="w-4 h-4" />
@@ -269,7 +278,7 @@ export const GlobalPlayer: React.FC = () => {
                 step={0.01}
                 value={isMuted ? 0 : volume}
                 onChange={(e) => setVolume(parseFloat(e.target.value))}
-                className="w-20 h-1 bg-slate-200 dark:bg-white/20 accent-amber-500 rounded-full cursor-pointer"
+                className="w-20 h-1.5 bg-slate-300 dark:bg-white/25 accent-amber-500 rounded-full cursor-pointer"
               />
             </div>
           </div>

@@ -215,7 +215,12 @@ export interface ContentSubmission {
   description?: string;
   category: CreatorCategory;
   languageId: string;
+  languageName?: string;
   genreId: string;
+  genreName?: string;
+  mood?: string;
+  durationSeconds?: number;
+  storageKey?: string;
   audioUrl?: string;
   videoUrl?: string;
   coverUrl?: string;
@@ -223,7 +228,11 @@ export interface ContentSubmission {
   lyricist?: string;
   producer?: string;
   featuredArtists: string[];
+  lyricsText?: string;
+  lyricsTimedData?: any;
   ownershipDeclaration: boolean;
+  rightsDeclaration?: any;
+  publishedSongId?: string;
   status: SubmissionStatus;
   reviewedBy?: string;
   reviewNotes?: string;
@@ -361,6 +370,33 @@ export interface LeaderboardItem {
   language?: string;
   genre?: string;
   isDesiCreator?: boolean;
+}
+
+export interface CompetitionVote {
+  id: string;
+  competitionId: string;
+  entryId: string;
+  userId: string;
+  riskScore?: string;
+  status: 'VALID' | 'SUSPICIOUS' | 'DISQUALIFIED';
+  createdAt: string;
+}
+
+export interface SongPlay {
+  id: string;
+  songId: string;
+  userId?: string | null;
+  durationPlayedSeconds: number;
+  isQualified: boolean;
+  createdAt: string;
+}
+
+export interface SavedSong {
+  id: string;
+  userId: string;
+  songId: string;
+  song?: Song;
+  savedAt: string;
 }
 
 // --- SOCIAL, PLAYLISTS & REPORTS ---

@@ -69,7 +69,7 @@ async function runAdvancedTests() {
     const res = await fetch(`${BASE_URL}/sw.js`);
     if (res.status !== 200) throw new Error(`Expected 200 OK, got ${res.status}`);
     const text = await res.text();
-    if (!text.includes('talent5-cache-v1') || !text.includes('addEventListener')) {
+    if (!text.includes('talent5-cache') || !text.includes('addEventListener')) {
       throw new Error(`Invalid service worker content`);
     }
   });

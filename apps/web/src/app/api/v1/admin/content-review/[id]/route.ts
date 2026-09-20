@@ -76,13 +76,17 @@ export async function PATCH(
         artistId = newArtistRes.rows[0].id;
       }
 
-      // Create song record in catalog
+      // Create song record in catalog with real duration and assets
       const songSlug = sub.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') + '-' + Date.now().toString().slice(-4);
+      const duration = sub.duration_seconds && sub.duration_seconds > 0 ? Number(sub.duration_seconds) : 180;
+      const audioUrl = sub.audio_url || '/media/placeholder-audio.mp3';
+      const artworkUrl = sub.cover_url || '/media/placeholder-cover.jpg';
+
       const songRes = await client.query(
         `INSERT INTO songs (
           id, title, slug, artist_id, language_id, genre_id, duration_seconds, audio_url, artwork_url, status, is_explicit
         ) VALUES (
-          uuid_generate_v4(), $1, $2, $3, $4, $5, 210, $6, $7, 'PUBLISHED', FALSE
+          uuid_generate_v4(), $1, $2, $3, $4, $5, $6, $7, $8, 'PUBLISHED', FALSE
         ) RETURNING id`,
         [
           sub.title,
@@ -90,11 +94,63 @@ export async function PATCH(
           artistId,
           sub.language_id,
           sub.genre_id,
-          sub.audio_url || 'https://cdn.freesound.org/previews/557/557194_11861866-lq.mp3',
-          sub.cover_url || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600',
+          duration,
+          audioUrl,
+          artworkUrl,
         ]
       );
       const songId = songRes.rows[0].id;
+
+      // Update content_submissions with published song id
+      await client.query(
+        `UPDATE content_submissions SET published_song_id = $1 WHERE id = $2`,
+        [songId, submissionId]
+      );
+
+      // Transfer synchronized lyrics if provided
+      let timedLines: any[] = [];
+      if (sub.lyrics_timed_data) {
+        if (Array.isArray(sub.lyrics_timed_data)) {
+          timedLines = sub.lyrics_timed_data;
+        } else if (typeof sub.lyrics_timed_data === 'string') {
+          try {
+            timedLines = JSON.parse(sub.lyrics_timed_data);
+          } catch {
+            timedLines = [];
+          }
+        }
+      }
+
+      const isSynced = Array.isArray(timedLines) && timedLines.length > 0;
+      const fullText = (sub.lyrics_text || (isSynced ? timedLines.map((l: any) => l.text).join('\n') : '') || '').trim();
+
+      if (fullText || isSynced) {
+        const lyricsRes = await client.query(
+          `INSERT INTO lyrics (id, song_id, language_id, is_synced, full_text)
+           VALUES (uuid_generate_v4(), $1, $2, $3, $4)
+           ON CONFLICT (song_id) DO UPDATE SET is_synced = EXCLUDED.is_synced, full_text = EXCLUDED.full_text
+           RETURNING id`,
+          [songId, sub.language_id, isSynced, fullText || 'Instrumental / Original Track']
+        );
+        const lyricsId = lyricsRes.rows[0].id;
+
+        if (isSynced) {
+          await client.query(`DELETE FROM lyric_lines WHERE lyrics_id = $1`, [lyricsId]);
+          for (let i = 0; i < timedLines.length; i++) {
+            const line = timedLines[i];
+            const startMs = line.startTimeMs || line.start_time_ms || 0;
+            const endMs = line.endTimeMs || line.end_time_ms || (startMs + 3000);
+            const lineText = (line.text || '').trim();
+            if (lineText) {
+              await client.query(
+                `INSERT INTO lyric_lines (id, lyrics_id, sequence_order, start_time_ms, end_time_ms, text)
+                 VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5)`,
+                [lyricsId, i + 1, Math.round(startMs), Math.round(endMs), lineText]
+              );
+            }
+          }
+        }
+      }
 
       // Upsert into desi_music_content
       await client.query(

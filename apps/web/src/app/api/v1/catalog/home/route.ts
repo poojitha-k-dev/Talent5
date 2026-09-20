@@ -114,12 +114,74 @@ export async function GET(req: NextRequest) {
        LIMIT 4`
     );
 
+    // 8. Rising Independent Creators (Artists with original creator profiles)
+    const risingArtistsRes = await query(
+      `SELECT a.id, a.name, a.slug, a.bio, a.avatar_url as "avatarUrl", 
+              a.cover_url as "coverUrl", a.is_verified as "isVerified",
+              a.total_plays as "totalPlays", a.followers_count as "followersCount",
+              cp.category, cp.city, cp.state
+       FROM artists a
+       JOIN creator_profiles cp ON a.user_id = cp.user_id
+       ORDER BY a.followers_count DESC, a.total_plays DESC
+       LIMIT 8`
+    );
+
+    // 9. New Voices (Recent originals by independent vocalists)
+    const newVoicesRes = await query(
+      `SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds", 
+              s.audio_url as "audioUrl", s.artwork_url as "artworkUrl",
+              s.play_count as "playCount", s.valid_likes_count as "validLikesCount",
+              s.release_date as "releaseDate", s.status,
+              a.id as "artistId", a.name as "artistName",
+              l.id as "languageId", l.code as "languageCode", l.name as "languageName",
+              g.id as "genreId", g.name as "genreName"
+       FROM songs s
+       JOIN artists a ON s.artist_id = a.id
+       JOIN languages l ON s.language_id = l.id
+       JOIN genres g ON s.genre_id = g.id
+       WHERE s.status = 'PUBLISHED'
+       ORDER BY s.created_at DESC
+       LIMIT 8`
+    );
+
+    // 10. Optional: Recently Played Telemetry
+    let recentlyPlayed: any[] = [];
+    const authHeader = req.headers.get('authorization');
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const { getUserFromRequest } = await import('@/lib/auth');
+        const user = await getUserFromRequest(req);
+        if (user) {
+          const playsRes = await query(
+            `SELECT DISTINCT ON (s.id) s.id, s.title, s.slug, s.duration_seconds as "durationSeconds",
+                    s.audio_url as "audioUrl", s.artwork_url as "artworkUrl",
+                    a.id as "artistId", a.name as "artistName",
+                    l.name as "languageName", sp.created_at as "playedAt"
+             FROM song_plays sp
+             JOIN songs s ON sp.song_id = s.id
+             JOIN artists a ON s.artist_id = a.id
+             JOIN languages l ON s.language_id = l.id
+             WHERE sp.user_id = $1
+             ORDER BY s.id, sp.created_at DESC
+             LIMIT 8`,
+            [user.id]
+          );
+          recentlyPlayed = playsRes.rows;
+        }
+      } catch (authErr) {
+        // non-blocking
+      }
+    }
+
     return NextResponse.json({
       success: true,
       data: {
         trending: trendingRes.rows,
         newReleases: newReleasesRes.rows,
         artists: artistsRes.rows,
+        risingArtists: risingArtistsRes.rows.length > 0 ? risingArtistsRes.rows : artistsRes.rows.slice(0, 6),
+        newVoices: newVoicesRes.rows,
+        recentlyPlayed,
         languages: languagesRes.rows,
         genres: genresRes.rows,
         desiContent: desiRes.rows,

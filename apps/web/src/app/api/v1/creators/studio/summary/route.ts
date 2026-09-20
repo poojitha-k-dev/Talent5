@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
 import { getActiveRewardRule } from '@/lib/rewards';
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {

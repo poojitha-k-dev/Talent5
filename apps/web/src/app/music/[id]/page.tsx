@@ -24,7 +24,16 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 
 export default function SongDetailPage({ params }: { params: { id: string } }) {
-  const { currentSong, isPlaying, playSong, togglePlay, setIsLyricsOpen } = useAudio();
+  const {
+    currentSong,
+    isPlaying,
+    playSong,
+    togglePlay,
+    setIsLyricsOpen,
+    activeLyricIndex,
+    currentLyricsLines,
+    seek,
+  } = useAudio();
   const { user, token } = useAuth();
 
   const [song, setSong] = useState<Song | null>(null);
@@ -37,6 +46,8 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
   const [likeCount, setLikeCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [commentSubmitting, setCommentSubmitting] = useState<boolean>(false);
+  const [lyricsMode, setLyricsMode] = useState<'stream' | 'full'>('stream');
+  const [isExpandedFullLyrics, setIsExpandedFullLyrics] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchSongData = async () => {
@@ -235,8 +246,13 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
               <Button
                 variant="secondary"
                 size="md"
-                onClick={() => setIsLyricsOpen(true)}
-                className="gap-2"
+                onClick={() => {
+                  if (!currentSong || currentSong.id !== song.id) {
+                    playSong(song);
+                  }
+                  setIsLyricsOpen(true);
+                }}
+                className="gap-2 font-bold text-amber-300 border-amber-500/30 hover:bg-amber-500/20"
               >
                 <FileText className="w-4 h-4 text-amber-400" />
                 <span>Synced Lyrics</span>
@@ -258,96 +274,202 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
           </div>
 
           {rights ? (
-            <div className="space-y-3 text-xs text-gray-300">
+            <div className="space-y-3 text-xs text-slate-200">
               <div>
-                <p className="text-gray-500">Rights Holder</p>
-                <p className="font-semibold text-white">{rights.rightsHolder}</p>
+                <p className="text-slate-400 font-medium">Rights Holder</p>
+                <p className="font-bold text-white text-sm">{rights.rightsHolder}</p>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <p className="text-gray-500">Ownership</p>
-                  <p className="font-medium text-amber-400">{rights.ownershipType}</p>
+                  <p className="text-slate-400 font-medium">Ownership</p>
+                  <p className="font-bold text-amber-400">{rights.ownershipType}</p>
                 </div>
                 <div>
-                  <p className="text-gray-500">License Type</p>
-                  <p className="font-medium text-white">{rights.licenseType}</p>
+                  <p className="text-slate-400 font-medium">License Type</p>
+                  <p className="font-bold text-white">{rights.licenseType}</p>
                 </div>
               </div>
               <div>
-                <p className="text-gray-500">Territory</p>
-                <p className="font-medium text-white">{rights.territory}</p>
+                <p className="text-slate-400 font-medium">Territory</p>
+                <p className="font-bold text-white">{rights.territory}</p>
               </div>
               <div>
-                <p className="text-gray-500">Permitted Rights</p>
-                <div className="flex flex-wrap gap-1 mt-1">
+                <p className="text-slate-400 font-medium">Permitted Rights</p>
+                <div className="flex flex-wrap gap-1.5 mt-1">
                   {rights.streamingAllowed && (
-                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 text-[10px]">
+                    <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold text-[11px] border border-emerald-500/30">
                       Streaming
                     </span>
                   )}
                   {rights.monetizationAllowed && (
-                    <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[10px]">
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-semibold text-[11px] border border-amber-500/30">
                       Monetization
                     </span>
                   )}
                   {rights.ugcAllowed && (
-                    <span className="px-2 py-0.5 rounded bg-teal-500/20 text-teal-300 text-[10px]">
+                    <span className="px-2.5 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-semibold text-[11px] border border-teal-500/30">
                       UGC Content
                     </span>
                   )}
                   {rights.karaokeAllowed && (
-                    <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px]">
+                    <span className="px-2.5 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-semibold text-[11px] border border-blue-500/30">
                       Singing Mode
                     </span>
                   )}
                 </div>
               </div>
               {rights.notes && (
-                <p className="text-[11px] text-gray-400 italic pt-2 border-t border-white/5">
+                <p className="text-xs text-slate-300 italic pt-2 border-t border-white/10">
                   "{rights.notes}"
                 </p>
               )}
             </div>
           ) : (
-            <p className="text-xs text-gray-400">Public domain / Open cultural catalog license.</p>
+            <p className="text-xs text-slate-400">Public domain / Open cultural catalog license.</p>
           )}
         </div>
 
-        {/* Lyrics Preview Card */}
+        {/* Lyrics Preview & Synchronized Stream Card */}
         <div className="lg:col-span-2 glass-panel rounded-2xl p-6 border border-white/10 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 mb-4 flex-wrap gap-2">
+              <div className="flex items-center gap-3">
                 <FileText className="w-5 h-5 text-amber-400" />
-                <h3 className="text-base font-bold font-display text-white">Lyrics Preview</h3>
+                <h3 className="text-base font-bold font-display text-white">Song Lyrics</h3>
+                {lyrics && (
+                  <div className="flex items-center bg-white/5 p-1 rounded-xl border border-white/10 text-xs">
+                    <button
+                      onClick={() => setLyricsMode('stream')}
+                      className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
+                        lyricsMode === 'stream'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Synchronized ({lyrics.lines?.length || 0} lines)
+                    </button>
+                    <button
+                      onClick={() => setLyricsMode('full')}
+                      className={`px-3 py-1 rounded-lg font-semibold transition-colors ${
+                        lyricsMode === 'full'
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                          : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      Total Lyrics
+                    </button>
+                  </div>
+                )}
               </div>
               {lyrics && (
-                <button
-                  onClick={() => setIsLyricsOpen(true)}
-                  className="text-xs font-semibold text-amber-400 hover:underline"
-                >
-                  Open Full Teleprompter
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (!currentSong || currentSong.id !== song.id) {
+                        playSong(song);
+                      }
+                      setIsLyricsOpen(true);
+                    }}
+                    className="text-xs font-bold text-amber-400 hover:text-amber-300 hover:underline px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/25 flex items-center gap-1.5 transition-all hover:scale-105"
+                  >
+                    <span>Full Teleprompter</span>
+                    <span>→</span>
+                  </button>
+                </div>
               )}
             </div>
 
             {lyrics ? (
-              <pre className="font-sans text-sm text-gray-300 leading-relaxed whitespace-pre-line line-clamp-6">
-                {lyrics.fullText}
-              </pre>
+              lyricsMode === 'stream' && lyrics.lines && lyrics.lines.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-amber-300/80 mb-2">
+                    <span>Click any line to jump audio to that exact moment:</span>
+                    {isCurrentSong && isPlaying && (
+                      <span className="flex items-center gap-1.5 text-amber-400 font-bold animate-pulse">
+                        <span className="w-2 h-2 rounded-full bg-amber-400" />
+                        Live Synchronized
+                      </span>
+                    )}
+                  </div>
+                  <div className="bg-midnight-950/80 border border-white/10 p-4 rounded-2xl max-h-96 overflow-y-auto space-y-2 divide-y divide-white/5">
+                    {lyrics.lines.map((line: any, idx: number) => {
+                      const isActive = isCurrentSong && idx === activeLyricIndex;
+                      return (
+                        <div
+                          key={line.id || idx}
+                          onClick={() => {
+                            if (!isCurrentSong) {
+                              playSong(song);
+                            }
+                            seek(line.startTimeMs / 1000);
+                          }}
+                          className={`pt-2 cursor-pointer transition-all duration-200 px-3 py-2 rounded-xl flex items-start justify-between gap-4 ${
+                            isActive
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                              : 'text-slate-200 hover:bg-white/5 hover:text-white font-medium'
+                          }`}
+                        >
+                          <span className="text-sm sm:text-base leading-relaxed">{line.text}</span>
+                          <span className="text-[11px] font-mono text-slate-400 flex-shrink-0 mt-0.5">
+                            {formatDuration(Math.floor(line.startTimeMs / 1000))}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-midnight-950/70 border border-white/10 p-5 rounded-2xl transition-all">
+                    <pre
+                      className={`font-sans text-sm sm:text-base text-slate-100 font-medium leading-relaxed whitespace-pre-line select-text ${
+                        isExpandedFullLyrics ? '' : 'line-clamp-10'
+                      }`}
+                    >
+                      {lyrics.fullText}
+                    </pre>
+                  </div>
+                  <button
+                    onClick={() => setIsExpandedFullLyrics(!isExpandedFullLyrics)}
+                    className="text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors"
+                  >
+                    {isExpandedFullLyrics ? '▲ Collapse Total Lyrics' : '▼ View Entire Total Song Lyrics'}
+                  </button>
+                </div>
+              )
             ) : (
-              <p className="text-xs text-gray-400 py-6">
+              <p className="text-xs text-slate-400 py-6">
                 Synchronized lyrics are undergoing review by Talent5 editors for this track.
               </p>
             )}
           </div>
 
           {lyrics && (
-            <div className="pt-4 border-t border-white/5 mt-4 flex items-center justify-between text-xs text-gray-400">
-              <span>Synchronized lines: {lyrics.lines?.length || 0}</span>
-              <Button variant="outline" size="sm" onClick={() => setIsLyricsOpen(true)}>
-                Karaoke Mode View
-              </Button>
+            <div className="pt-4 border-t border-white/10 mt-4 flex items-center justify-between text-xs text-slate-300 flex-wrap gap-2">
+              <span className="font-medium">
+                Total Synchronized Lines: <strong className="text-amber-400 font-bold">{lyrics.lines?.length || 0}</strong>
+              </span>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/karaoke?song=${song.id}`}
+                  className="px-3 py-1.5 rounded-lg font-bold text-amber-300 border border-amber-500/30 hover:bg-amber-500/15 transition-colors inline-flex items-center gap-1.5"
+                >
+                  <span>Karaoke Studio</span>
+                </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (!currentSong || currentSong.id !== song.id) {
+                      playSong(song);
+                    }
+                    setIsLyricsOpen(true);
+                  }}
+                  className="font-bold text-amber-300 border-amber-500/30 hover:bg-amber-500/15"
+                >
+                  Teleprompter Mode
+                </Button>
+              </div>
             </div>
           )}
         </div>

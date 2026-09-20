@@ -266,6 +266,13 @@ CREATE TABLE content_submissions (
     producer VARCHAR(150),
     featured_artists TEXT[] DEFAULT ARRAY[]::TEXT[],
     ownership_declaration BOOLEAN NOT NULL DEFAULT FALSE,
+    duration_seconds INT DEFAULT 0,
+    storage_key TEXT,
+    mood VARCHAR(100),
+    lyrics_text TEXT,
+    lyrics_timed_data JSONB,
+    rights_declaration JSONB,
+    published_song_id UUID REFERENCES songs(id) ON DELETE SET NULL,
     status VARCHAR(30) DEFAULT 'SUBMITTED' CHECK (status IN ('DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'TAKEDOWN', 'SUSPENDED')),
     reviewed_by UUID REFERENCES users(id),
     review_notes TEXT,
@@ -314,6 +321,31 @@ CREATE TABLE fraud_events (
     action_taken VARCHAR(50) DEFAULT 'FLAGGED',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE song_plays (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    song_id UUID NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    duration_played_seconds INT NOT NULL,
+    is_qualified BOOLEAN NOT NULL DEFAULT FALSE,
+    ip_hash VARCHAR(64),
+    device_fingerprint VARCHAR(128),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_song_plays_song_id ON song_plays(song_id);
+CREATE INDEX idx_song_plays_user_id ON song_plays(user_id);
+CREATE INDEX idx_song_plays_qualified ON song_plays(is_qualified, created_at);
+
+CREATE TABLE saved_songs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    song_id UUID NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, song_id)
+);
+
+CREATE INDEX idx_saved_songs_user ON saved_songs(user_id);
 
 -- 14. REWARD RULES, WALLETS & PAYOUTS
 CREATE TABLE reward_rules (
@@ -440,6 +472,20 @@ CREATE TABLE competition_entries (
     submitted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(competition_id, creator_id)
 );
+
+CREATE TABLE competition_votes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    competition_id UUID NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,
+    entry_id UUID NOT NULL REFERENCES competition_entries(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    ip_hash VARCHAR(64),
+    risk_score VARCHAR(20) DEFAULT 'LOW',
+    status VARCHAR(30) DEFAULT 'VALID' CHECK (status IN ('VALID', 'SUSPICIOUS', 'DISQUALIFIED')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(competition_id, user_id)
+);
+
+CREATE INDEX idx_comp_votes ON competition_votes(competition_id, entry_id);
 
 -- 17. NOTIFICATIONS & REPORTS
 CREATE TABLE notifications (

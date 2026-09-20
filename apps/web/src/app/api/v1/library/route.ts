@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { query } from '@/lib/db';
 import { getUserFromRequest } from '@/lib/auth';
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
   try {
@@ -54,10 +55,50 @@ export async function GET(req: NextRequest) {
       [user.id]
     );
 
+    // 4. Saved Songs (Bookmarks)
+    const savedSongsRes = await query(
+      `SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds",
+              s.audio_url as "audioUrl", s.artwork_url as "artworkUrl",
+              s.valid_likes_count as "validLikesCount", s.play_count as "playCount",
+              a.id as "artistId", a.name as "artistName",
+              l.name as "languageName", g.name as "genreName",
+              ss.created_at as "savedAt"
+       FROM saved_songs ss
+       JOIN songs s ON ss.song_id = s.id
+       JOIN artists a ON s.artist_id = a.id
+       JOIN languages l ON s.language_id = l.id
+       JOIN genres g ON s.genre_id = g.id
+       WHERE ss.user_id = $1
+       ORDER BY ss.created_at DESC`,
+      [user.id]
+    );
+
+    // 5. Listening History (Recent plays)
+    const historyRes = await query(
+      `SELECT DISTINCT ON (s.id) s.id, s.title, s.slug, s.duration_seconds as "durationSeconds",
+              s.audio_url as "audioUrl", s.artwork_url as "artworkUrl",
+              s.valid_likes_count as "validLikesCount", s.play_count as "playCount",
+              a.id as "artistId", a.name as "artistName",
+              l.name as "languageName", g.name as "genreName",
+              sp.duration_played_seconds as "durationPlayedSeconds",
+              sp.is_qualified as "isQualified", sp.created_at as "playedAt"
+       FROM song_plays sp
+       JOIN songs s ON sp.song_id = s.id
+       JOIN artists a ON s.artist_id = a.id
+       JOIN languages l ON s.language_id = l.id
+       JOIN genres g ON s.genre_id = g.id
+       WHERE sp.user_id = $1
+       ORDER BY s.id, sp.created_at DESC
+       LIMIT 30`,
+      [user.id]
+    );
+
     return NextResponse.json({
       success: true,
       data: {
         likedSongs: likedSongsRes.rows,
+        savedSongs: savedSongsRes.rows,
+        listeningHistory: historyRes.rows,
         playlists: playlistsRes.rows,
         followedArtists: followedArtistsRes.rows,
       },

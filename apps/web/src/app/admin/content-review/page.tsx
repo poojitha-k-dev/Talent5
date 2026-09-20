@@ -33,6 +33,11 @@ interface ContentItem {
   producer?: string;
   featuredArtists: string[];
   ownershipDeclaration: boolean;
+  durationSeconds?: number;
+  mood?: string;
+  lyricsText?: string;
+  lyricsTimedData?: any;
+  rightsDeclaration?: any;
   status: string;
   reviewNotes?: string;
   createdAt: string;
@@ -240,10 +245,23 @@ export default function AdminContentReviewPage() {
                     {item.creatorStageName} <span className="text-gray-500">({item.creatorCity})</span>
                   </p>
 
-                  <div className="flex items-center gap-2 text-[11px] text-gray-400 mt-2">
+                  <div className="flex items-center flex-wrap gap-2 text-[11px] text-gray-400 mt-2">
                     <span className="px-2 py-0.5 rounded bg-white/5">{item.languageName}</span>
                     <span className="px-2 py-0.5 rounded bg-white/5">{item.genreName}</span>
                     <span className="px-2 py-0.5 rounded bg-teal-500/10 text-teal-300">{item.category}</span>
+                    {item.durationSeconds ? (
+                      <span className="px-2 py-0.5 rounded bg-white/5 font-mono text-gray-300">
+                        {Math.floor(item.durationSeconds / 60)}:{(item.durationSeconds % 60).toString().padStart(2, '0')}
+                      </span>
+                    ) : null}
+                    {item.mood && (
+                      <span className="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">{item.mood}</span>
+                    )}
+                    {(item.lyricsTimedData || item.lyricsText) && (
+                      <span className="px-2 py-0.5 rounded bg-rose-500/10 text-rose-300 border border-rose-500/20 text-[10px]">
+                        {item.lyricsTimedData ? 'Synced Lyrics' : 'Plain Lyrics'}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -331,36 +349,119 @@ export default function AdminContentReviewPage() {
       {/* Moderation Modal */}
       {selectedItem && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="max-w-lg w-full bg-midnight-900 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-6">
+          <div className="max-w-2xl w-full max-h-[90vh] overflow-y-auto bg-midnight-900 border border-white/10 rounded-2xl p-6 shadow-2xl space-y-6">
             <div className="flex items-start justify-between border-b border-white/10 pb-4">
-              <div>
-                <h3 className="text-lg font-bold text-white">Moderate: {selectedItem.title}</h3>
-                <p className="text-xs text-gray-400">By {selectedItem.creatorStageName}</p>
+              <div className="flex items-center gap-3">
+                <img
+                  src={selectedItem.coverUrl || '/media/placeholder-cover.jpg'}
+                  alt=""
+                  className="w-12 h-12 rounded-xl object-cover border border-white/10"
+                />
+                <div>
+                  <h3 className="text-lg font-bold text-white">Moderate: {selectedItem.title}</h3>
+                  <p className="text-xs text-gray-400">By {selectedItem.creatorStageName} • {selectedItem.creatorCity}</p>
+                </div>
               </div>
-              <button onClick={() => setSelectedItem(null)} className="text-gray-400 hover:text-white font-bold">
+              <button onClick={() => setSelectedItem(null)} className="text-gray-400 hover:text-white font-bold text-lg">
                 ✕
               </button>
             </div>
 
-            <div className="space-y-4 text-xs">
-              <p className="text-gray-300 leading-relaxed bg-midnight-950 p-3 rounded-xl border border-white/5">
-                {selectedItem.description || 'No description provided by creator.'}
-              </p>
+            {/* Audio Preview */}
+            <div className="p-4 rounded-xl bg-midnight-950 border border-white/5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-300">Master Audio Track</span>
+                {selectedItem.durationSeconds ? (
+                  <span className="text-xs text-amber-400 font-mono">
+                    {Math.floor(selectedItem.durationSeconds / 60)}:{(selectedItem.durationSeconds % 60).toString().padStart(2, '0')}
+                  </span>
+                ) : null}
+              </div>
+              {selectedItem.audioUrl ? (
+                <audio controls src={selectedItem.audioUrl} className="w-full h-10 accent-rose-500 rounded" />
+              ) : (
+                <p className="text-xs text-rose-400">No master audio file attached.</p>
+              )}
+            </div>
 
-              <div>
-                <label className="text-gray-300 font-medium block mb-1.5">
-                  Moderator Notes:
-                </label>
-                <textarea
-                  value={reviewNotes}
-                  onChange={(e) => setReviewNotes(e.target.value)}
-                  placeholder="Enter moderation decision notes..."
-                  rows={3}
-                  className="w-full rounded-xl bg-midnight-950 border border-white/10 p-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-rose-500"
-                />
+            {/* Metadata Badges */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="p-2.5 rounded-lg bg-white/5 border border-white/5">
+                <div className="text-[10px] text-gray-400">Language</div>
+                <div className="font-semibold text-white mt-0.5">{selectedItem.languageName}</div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-white/5 border border-white/5">
+                <div className="text-[10px] text-gray-400">Genre</div>
+                <div className="font-semibold text-white mt-0.5">{selectedItem.genreName}</div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-white/5 border border-white/5">
+                <div className="text-[10px] text-gray-400">Mood</div>
+                <div className="font-semibold text-amber-400 mt-0.5">{selectedItem.mood || 'Not specified'}</div>
+              </div>
+              <div className="p-2.5 rounded-lg bg-white/5 border border-white/5">
+                <div className="text-[10px] text-gray-400">Category</div>
+                <div className="font-semibold text-teal-400 mt-0.5">{selectedItem.category}</div>
               </div>
             </div>
 
+            {/* Story / Description */}
+            <div className="space-y-1">
+              <span className="text-xs font-semibold text-gray-400">Creator's Story</span>
+              <p className="text-gray-300 text-xs leading-relaxed bg-midnight-950 p-3 rounded-xl border border-white/5">
+                {selectedItem.description || 'No description provided by creator.'}
+              </p>
+            </div>
+
+            {/* Lyrics Preview */}
+            {(selectedItem.lyricsText || selectedItem.lyricsTimedData) && (
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-gray-400">Lyrics / Timed Data</span>
+                  {selectedItem.lyricsTimedData && (
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      Synchronized Line Timings Included
+                    </span>
+                  )}
+                </div>
+                <div className="max-h-36 overflow-y-auto p-3 rounded-xl bg-midnight-950 border border-white/5 font-mono text-[11px] text-gray-300 whitespace-pre-wrap">
+                  {selectedItem.lyricsText || (Array.isArray(selectedItem.lyricsTimedData) ? selectedItem.lyricsTimedData.map((l: any) => `[${l.startTimeMs || l.timeMs}ms] ${l.text}`).join('\n') : JSON.stringify(selectedItem.lyricsTimedData, null, 2))}
+                </div>
+              </div>
+            )}
+
+            {/* Rights Declaration */}
+            <div className="p-3 rounded-xl bg-midnight-950 border border-white/5 space-y-2">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+                <ShieldCheck className="w-4 h-4" />
+                Copyright & Rights Declaration
+              </div>
+              <div className="text-[11px] text-gray-400 space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-400">✓</span>
+                  <span>Creator certified 100% original master ownership and composition rights.</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-emerald-400">✓</span>
+                  <span>Certified NO unauthorized copyrighted samples or synthetic AI voice clones without license.</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Moderator Notes */}
+            <div>
+              <label className="text-gray-300 text-xs font-medium block mb-1.5">
+                Moderator Notes:
+              </label>
+              <textarea
+                value={reviewNotes}
+                onChange={(e) => setReviewNotes(e.target.value)}
+                placeholder="Enter moderation decision notes..."
+                rows={2}
+                className="w-full rounded-xl bg-midnight-950 border border-white/10 p-3 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-rose-500"
+              />
+            </div>
+
+            {/* Action Buttons */}
             <div className="flex items-center justify-end gap-2 pt-4 border-t border-white/10">
               <Button variant="ghost" size="sm" onClick={() => setSelectedItem(null)} disabled={submitting}>
                 Cancel

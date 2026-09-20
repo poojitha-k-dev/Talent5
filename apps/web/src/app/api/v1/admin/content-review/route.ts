@@ -16,6 +16,8 @@ export async function GET(req: NextRequest) {
              cs.language_id as "languageId", cs.genre_id as "genreId", cs.audio_url as "audioUrl",
              cs.video_url as "videoUrl", cs.cover_url as "coverUrl", cs.composer, cs.lyricist,
              cs.producer, cs.featured_artists as "featuredArtists", cs.ownership_declaration as "ownershipDeclaration",
+             cs.duration_seconds as "durationSeconds", cs.mood, cs.lyrics_text as "lyricsText",
+             cs.lyrics_timed_data as "lyricsTimedData", cs.rights_declaration as "rightsDeclaration",
              cs.status, cs.review_notes as "reviewNotes", cs.created_at as "createdAt",
              cp.stage_name as "creatorStageName", cp.city as "creatorCity", cp.verified_badge as "isVerifiedCreator",
              l.name as "languageName", g.name as "genreName"

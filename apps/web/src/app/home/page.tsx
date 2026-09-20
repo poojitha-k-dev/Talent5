@@ -17,6 +17,7 @@ import {
   Radio,
   X,
   Music,
+  FileText,
 } from 'lucide-react';
 import { useAudio } from '@/context/AudioContext';
 import { Song, Language, Genre, Artist, Competition } from '@talent5/types';
@@ -26,7 +27,7 @@ import { formatCompactNumber, formatDuration, formatINR } from '@talent5/utils';
 import { RagaSoundscapeExplorer } from '@/components/creative/RagaSoundscapeExplorer';
 
 export default function HomePage() {
-  const { currentSong, isPlaying, playSong, togglePlay } = useAudio();
+  const { currentSong, isPlaying, playSong, togglePlay, setIsLyricsOpen } = useAudio();
   const [data, setData] = useState<{
     trending: Song[];
     newReleases: Song[];
@@ -331,31 +332,47 @@ export default function HomePage() {
                     </div>
                   </button>
 
-                  <div className="absolute top-2 right-2">
+                  <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
                     <span
-                      title="Rights Cleared"
-                      className="p-1 rounded-full bg-black/60 text-emerald-400 flex items-center justify-center"
+                      title="100% Rights Cleared Pure Vocal"
+                      className="p-1 rounded-full bg-black/70 text-emerald-400 flex items-center justify-center border border-emerald-500/30"
                     >
                       <ShieldCheck className="w-3.5 h-3.5" />
                     </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!currentSong || currentSong.id !== song.id) {
+                          playSong(song, data.trending);
+                        }
+                        setIsLyricsOpen(true);
+                      }}
+                      title="Open Synced Lyrics"
+                      className="p-1.5 rounded-full bg-black/70 hover:bg-amber-500 text-amber-300 hover:text-midnight-950 border border-amber-500/40 transition-colors shadow-sm pointer-events-auto"
+                    >
+                      <FileText className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 
                 <div className="flex-1 min-w-0">
                   <Link
                     href={`/music/${song.slug || song.id}`}
-                    className="text-sm font-semibold text-slate-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 truncate block transition-colors"
+                    className="text-sm font-bold text-slate-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 truncate block transition-colors drop-shadow-sm"
+                    title={song.title}
                   >
                     {song.title}
                   </Link>
-                  <p className="text-xs text-slate-500 dark:text-gray-400 truncate mt-0.5">
+                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-300 truncate mt-0.5" title={song.artistName}>
                     {song.artistName || 'Talent5 Artist'}
                   </p>
                 </div>
 
-                <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100 dark:border-white/5 text-[11px] text-slate-400 dark:text-gray-500">
-                  <span>{song.languageName}</span>
-                  <span className="flex items-center gap-1 text-rose-500">
+                <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-slate-200 dark:border-white/10 text-xs">
+                  <span className="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 font-bold text-[11px]">
+                    {song.languageName}
+                  </span>
+                  <span className="flex items-center gap-1 text-rose-500 font-bold text-xs">
                     <Heart className="w-3 h-3 fill-current" />
                     {formatCompactNumber(song.validLikesCount || 0)}
                   </span>
