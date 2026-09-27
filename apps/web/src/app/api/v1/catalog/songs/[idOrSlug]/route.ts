@@ -49,7 +49,7 @@ export async function GET(
 
     // Fetch Synchronized Lyrics
     const lyricsRes = await query(
-      `SELECT id, is_synced as "isSynced", full_text as "fullText"
+      `SELECT id, is_synced as "isSynced", sync_status as "syncStatus", version, full_text as "fullText"
        FROM lyrics
        WHERE song_id = $1`,
       [song.id]
@@ -58,7 +58,7 @@ export async function GET(
     if (lyrics) {
       const linesRes = await query(
         `SELECT id, sequence_order as "sequenceOrder", start_time_ms as "startTimeMs", 
-                end_time_ms as "endTimeMs", text
+                end_time_ms as "endTimeMs", text, COALESCE(words, '[]'::jsonb) as "words"
          FROM lyric_lines
          WHERE lyrics_id = $1
          ORDER BY sequence_order ASC`,

@@ -122,15 +122,16 @@ export async function PATCH(
       }
 
       const isSynced = Array.isArray(timedLines) && timedLines.length > 0;
+      const syncStatus = isSynced ? 'SYNCED' : 'UNSYNCED';
       const fullText = (sub.lyrics_text || (isSynced ? timedLines.map((l: any) => l.text).join('\n') : '') || '').trim();
 
       if (fullText || isSynced) {
         const lyricsRes = await client.query(
-          `INSERT INTO lyrics (id, song_id, language_id, is_synced, full_text)
-           VALUES (uuid_generate_v4(), $1, $2, $3, $4)
-           ON CONFLICT (song_id) DO UPDATE SET is_synced = EXCLUDED.is_synced, full_text = EXCLUDED.full_text
+          `INSERT INTO lyrics (id, song_id, language_id, is_synced, sync_status, full_text)
+           VALUES (uuid_generate_v4(), $1, $2, $3, $4, $5)
+           ON CONFLICT (song_id) DO UPDATE SET is_synced = EXCLUDED.is_synced, sync_status = EXCLUDED.sync_status, full_text = EXCLUDED.full_text
            RETURNING id`,
-          [songId, sub.language_id, isSynced, fullText || 'Instrumental / Original Track']
+          [songId, sub.language_id, isSynced, syncStatus, fullText || 'Instrumental / Original Track']
         );
         const lyricsId = lyricsRes.rows[0].id;
 

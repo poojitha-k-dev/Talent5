@@ -142,7 +142,7 @@ export default function LeaderboardsPage() {
 
                     <div className="min-w-0 flex-1">
                       <Link
-                        href={`/music/${song.slug || song.id}`}
+                        href={`/song/${song.id}`}
                         className="text-sm font-semibold text-white hover:text-amber-400 truncate block"
                       >
                         {song.title}
@@ -195,7 +195,7 @@ export default function LeaderboardsPage() {
 
                     <div className="min-w-0 flex-1">
                       <Link
-                        href={`/music/${song.slug || song.id}`}
+                        href={`/song/${song.id}`}
                         className="text-sm font-semibold text-white hover:text-amber-400 truncate block"
                       >
                         {song.title}

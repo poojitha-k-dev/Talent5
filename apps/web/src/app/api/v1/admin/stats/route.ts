@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
       fraudEventsHigh,
       engagementStats,
       recentAuditLogs,
+      userMetricsRes,
+      recentSignupsRes,
     ] = await Promise.all([
       query(`SELECT COUNT(*) as count FROM users WHERE status = 'ACTIVE'`),
       query(`SELECT COUNT(*) as count FROM creator_profiles WHERE is_approved = TRUE`),
@@ -38,7 +40,42 @@ export async function GET(req: NextRequest) {
         ORDER BY a.created_at DESC
         LIMIT 8
       `),
+      query(`
+        SELECT
+          COUNT(*) as "totalUsers",
+          COUNT(*) FILTER (WHERE u.is_verified = TRUE) as "verifiedUsers",
+          COUNT(*) FILTER (WHERE u.created_at >= NOW() - INTERVAL '7 days') as "newThisWeek",
+          COUNT(*) FILTER (WHERE u.created_at >= NOW() - INTERVAL '30 days') as "newThisMonth",
+          COUNT(DISTINCT cp.user_id) FILTER (WHERE cp.is_approved = TRUE) as "totalCreators"
+        FROM users u
+        LEFT JOIN creator_profiles cp ON u.id = cp.user_id
+      `),
+      query(`
+        SELECT 
+          u.id, 
+          u.email, 
+          u.full_name as "fullName", 
+          u.username, 
+          u.avatar_url as "avatarUrl", 
+          u.phone, 
+          u.auth_provider as "authProvider", 
+          u.is_verified as "isVerified", 
+          u.status, 
+          u.created_at as "createdAt",
+          COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}') as roles,
+          EXISTS(SELECT 1 FROM creator_profiles cp WHERE cp.user_id = u.id AND cp.is_approved = TRUE) as "isCreator"
+        FROM users u
+        LEFT JOIN user_roles ur ON u.id = ur.user_id
+        LEFT JOIN roles r ON ur.role_id = r.id
+        GROUP BY u.id
+        ORDER BY u.created_at DESC
+        LIMIT 15
+      `),
     ]);
+
+    const userMetrics = userMetricsRes.rows[0];
+    const totalUsersCount = parseInt(userMetrics.totalUsers, 10);
+    const totalCreatorsCount = parseInt(userMetrics.totalCreators, 10);
 
     return NextResponse.json({
       success: true,
@@ -55,6 +92,15 @@ export async function GET(req: NextRequest) {
         totalPlays: parseInt(engagementStats.rows[0].plays, 10),
         totalValidLikes: parseInt(engagementStats.rows[0].likes, 10),
         recentAuditLogs: recentAuditLogs.rows,
+        userBreakdown: {
+          totalUsers: totalUsersCount,
+          totalCreators: totalCreatorsCount,
+          totalListeners: Math.max(0, totalUsersCount - totalCreatorsCount),
+          verifiedUsers: parseInt(userMetrics.verifiedUsers, 10),
+          newThisWeek: parseInt(userMetrics.newThisWeek, 10),
+          newThisMonth: parseInt(userMetrics.newThisMonth, 10),
+        },
+        recentSignups: recentSignupsRes.rows,
       },
     });
   } catch (err: any) {

@@ -45,11 +45,13 @@ DROP TABLE IF EXISTS users CASCADE;
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
-    password_hash VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255), -- Nullable for Google OAuth users
     full_name VARCHAR(150) NOT NULL,
     username VARCHAR(100) UNIQUE NOT NULL,
     avatar_url TEXT,
     phone VARCHAR(30),
+    google_id VARCHAR(255) UNIQUE,
+    auth_provider VARCHAR(50) DEFAULT 'password' CHECK (auth_provider IN ('password', 'google', 'oauth')),
     is_verified BOOLEAN DEFAULT FALSE,
     status VARCHAR(30) DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'SUSPENDED', 'DELETED')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -58,6 +60,7 @@ CREATE TABLE users (
 
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_username ON users(username);
+CREATE INDEX idx_users_google_id ON users(google_id);
 
 -- 2. ROLES & RBAC
 CREATE TABLE roles (
@@ -193,6 +196,8 @@ CREATE TABLE lyrics (
     song_id UUID UNIQUE NOT NULL REFERENCES songs(id) ON DELETE CASCADE,
     language_id INT REFERENCES languages(id),
     is_synced BOOLEAN DEFAULT FALSE,
+    sync_status VARCHAR(30) DEFAULT 'UNSYNCED' CHECK (sync_status IN ('UNSYNCED', 'SYNCING', 'SYNCED', 'NEEDS_REVIEW')),
+    version INT DEFAULT 1,
     full_text TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -203,7 +208,8 @@ CREATE TABLE lyric_lines (
     sequence_order INT NOT NULL,
     start_time_ms INT NOT NULL,
     end_time_ms INT NOT NULL,
-    text TEXT NOT NULL
+    text TEXT NOT NULL,
+    words JSONB DEFAULT '[]'::jsonb
 );
 
 CREATE INDEX idx_lyric_lines_timing ON lyric_lines(lyrics_id, start_time_ms);
@@ -532,3 +538,20 @@ CREATE TABLE system_settings (
     description TEXT,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- 19. PASSWORD RESETS & EMAIL OTP VERIFICATION
+CREATE TABLE password_resets (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    email VARCHAR(255) NOT NULL,
+    otp_hash VARCHAR(255) NOT NULL,
+    reset_token VARCHAR(255),
+    expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    attempts INTEGER DEFAULT 0,
+    used BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_password_resets_email ON password_resets(LOWER(email));
+CREATE INDEX idx_password_resets_reset_token ON password_resets(reset_token);
+

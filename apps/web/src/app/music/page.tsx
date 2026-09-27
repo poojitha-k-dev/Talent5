@@ -143,11 +143,10 @@ function MusicBrowseContent() {
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
           <button
             onClick={() => setSelectedLanguage('')}
-            className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all ${
-              selectedLanguage === ''
+            className={`flex-shrink-0 px-4 py-2 rounded-full text-xs font-bold transition-all ${selectedLanguage === ''
                 ? 'bg-amber-500 text-midnight-950 shadow-saffronGlow scale-105'
                 : 'bg-midnight-800 text-slate-200 hover:bg-midnight-700 hover:text-white border border-white/10'
-            }`}
+              }`}
           >
             All Languages ({languages.reduce((acc, l) => acc + ((l as any).songCount || 0), 0) || 281})
           </button>
@@ -158,18 +157,16 @@ function MusicBrowseContent() {
               <button
                 key={lang.id}
                 onClick={() => setSelectedLanguage(isSelected ? '' : lang.code)}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-all ${
-                  isSelected
+                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold transition-all ${isSelected
                     ? 'bg-amber-500 text-midnight-950 shadow-saffronGlow font-bold scale-105'
                     : 'bg-midnight-800 text-slate-200 hover:bg-midnight-700 hover:text-white border border-white/10'
-                }`}
+                  }`}
               >
                 <span>{lang.name}</span>
                 <span className="text-[10px] opacity-80">({lang.nativeName})</span>
                 {count ? (
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
-                    isSelected ? 'bg-midnight-950/30 text-midnight-950' : 'bg-white/10 text-amber-300'
-                  }`}>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${isSelected ? 'bg-midnight-950/30 text-midnight-950' : 'bg-white/10 text-amber-300'
+                    }`}>
                     {count}
                   </span>
                 ) : null}
@@ -288,9 +285,8 @@ function MusicBrowseContent() {
                       else playSong(song, songs);
                     }}
                     title={isCurrent && isPlaying ? 'Pause' : 'Play Song'}
-                    className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${
-                      isCurrent ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-                    }`}
+                    className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${isCurrent ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                      }`}
                   >
                     <div className="w-12 h-12 rounded-full bg-amber-500 text-midnight-950 flex items-center justify-center shadow-saffronGlow transform hover:scale-110 active:scale-95 transition-transform">
                       {isCurrent && isPlaying ? (
@@ -330,7 +326,7 @@ function MusicBrowseContent() {
                 {/* Track Details */}
                 <div className="flex-1 min-w-0">
                   <Link
-                    href={`/music/${song.slug || song.id}`}
+                    href={`/song/${song.id}`}
                     className="text-sm font-bold text-white hover:text-amber-400 truncate block transition-colors drop-shadow-sm"
                     title={song.title}
                   >

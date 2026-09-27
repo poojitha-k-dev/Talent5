@@ -87,6 +87,26 @@ export default function SongDetailsPage() {
       .catch(() => {});
   }, [token, id]);
 
+  const isThisSongPlaying = currentSong?.id === data?.song?.id && isPlaying;
+  const currentMs = currentTime * 1000;
+
+  const activeLineIndex =
+    isThisSongPlaying && data?.lyrics?.isSynced && data?.lyrics?.lines
+      ? data.lyrics.lines.findIndex(
+          (line) => currentMs >= line.startTimeMs && currentMs < line.endTimeMs
+        )
+      : -1;
+
+  // Automatically scroll the currently sung lyric into the center of the viewport
+  useEffect(() => {
+    if (isThisSongPlaying && activeLineIndex >= 0 && activeLyricRef.current) {
+      activeLyricRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }
+  }, [activeLineIndex, isThisSongPlaying]);
+
   const handlePlayToggle = () => {
     if (!data?.song) return;
     if (currentSong?.id === data.song.id) {
@@ -170,8 +190,6 @@ export default function SongDetailsPage() {
   }
 
   const { song, rights, lyrics, recommended } = data;
-  const isThisSongPlaying = currentSong?.id === song.id && isPlaying;
-  const currentMs = currentTime * 1000;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
@@ -313,34 +331,30 @@ export default function SongDetailsPage() {
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-bold font-display text-slate-900 dark:text-white flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-500" />
-              <span>Synchronized Lyrics</span>
+              <span>{lyrics?.isSynced ? 'Synchronized Lyrics' : 'Lyrics'}</span>
             </h2>
-            {lyrics?.isSynced && (
-              <span className="text-xs text-amber-600 dark:text-amber-400 font-medium">
-                Tap any line to jump audio
-              </span>
-            )}
           </div>
 
-          <div className="p-6 sm:p-8 rounded-3xl bg-white/60 dark:bg-midnight-900/60 border border-black/5 dark:border-white/10 max-h-[500px] overflow-y-auto space-y-4 shadow-sm scrollbar-thin">
+          <div className="p-6 sm:p-8 rounded-3xl bg-white/60 dark:bg-midnight-900/60 border border-black/5 dark:border-white/10 max-h-[500px] overflow-y-auto space-y-3 shadow-sm scrollbar-thin">
             {lyrics?.lines && lyrics.lines.length > 0 ? (
               lyrics.lines.map((line, idx) => {
-                const isActive =
-                  isThisSongPlaying &&
-                  currentMs >= line.startTimeMs &&
-                  currentMs < line.endTimeMs;
+                const isActive = idx === activeLineIndex;
 
                 return (
                   <div
                     key={line.id || idx}
                     ref={isActive ? activeLyricRef : null}
                     onClick={() => {
-                      if (currentSong?.id !== song.id) {
-                        playSong(song);
+                      if (lyrics?.isSynced) {
+                        if (currentSong?.id !== song.id) {
+                          playSong(song);
+                        }
+                        seek(line.startTimeMs / 1000);
                       }
-                      seek(line.startTimeMs / 1000);
                     }}
-                    className={`p-3 rounded-2xl cursor-pointer transition-all duration-300 ${
+                    className={`p-3.5 rounded-2xl transition-all duration-300 ${
+                      lyrics?.isSynced ? 'cursor-pointer' : 'cursor-default'
+                    } ${
                       isActive
                         ? 'bg-amber-500/15 border-l-4 border-amber-500 pl-4 scale-[1.01]'
                         : 'hover:bg-black/5 dark:hover:bg-white/5 opacity-75 hover:opacity-100'
@@ -355,9 +369,6 @@ export default function SongDetailsPage() {
                     >
                       {line.text}
                     </p>
-                    <span className="text-[10px] font-mono text-gray-400 mt-1 block">
-                      {formatDuration(Math.round(line.startTimeMs / 1000))}
-                    </span>
                   </div>
                 );
               })

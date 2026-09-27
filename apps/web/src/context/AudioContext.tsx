@@ -1,7 +1,36 @@
 'use client';
 
 import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
-import { Song, LyricLine } from '@talent5/types';
+import { Song, LyricLine, LyricSyncStatus } from '@talent5/types';
+
+/**
+ * Finds the actively sung lyric index based on actual playback position.
+ * Returns -1 during instrumental intros, interludes, or outros.
+ */
+export function findActiveLyricIndex(
+  currentMs: number,
+  lines: LyricLine[],
+  isSynced: boolean
+): number {
+  if (!isSynced || !lines || lines.length === 0) return -1;
+
+  // Instrumental intro before first lyric starts
+  if (currentMs < lines[0].startTimeMs) return -1;
+
+  // Instrumental outro after last lyric completes
+  if (currentMs >= lines[lines.length - 1].endTimeMs) return -1;
+
+  // Direct interval match
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (currentMs >= line.startTimeMs && currentMs < line.endTimeMs) {
+      return i;
+    }
+  }
+
+  // During instrumental gaps between sung lines, do not falsely highlight previous line
+  return -1;
+}
 
 interface AudioContextType {
   currentSong: Song | null;
@@ -19,6 +48,8 @@ interface AudioContextType {
   isExpandedOpen: boolean;
   activeLyricIndex: number;
   currentLyricsLines: LyricLine[];
+  currentLyricsSyncStatus: LyricSyncStatus;
+  currentLyricsFullText: string;
   playSong: (song: Song, customQueue?: Song[]) => void;
   togglePlay: () => void;
   seek: (seconds: number) => void;
@@ -57,6 +88,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   // Lyrics sync tracking
   const [currentLyricsLines, setCurrentLyricsLines] = useState<LyricLine[]>([]);
   const [activeLyricIndex, setActiveLyricIndex] = useState<number>(-1);
+  const [currentLyricsSyncStatus, setCurrentLyricsSyncStatus] = useState<LyricSyncStatus>('UNSYNCED');
+  const [currentLyricsFullText, setCurrentLyricsFullText] = useState<string>('');
 
   // Audio element ref
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -69,6 +102,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   const isShuffleRef = useRef<boolean>(false);
   const currentLyricsLinesRef = useRef<LyricLine[]>([]);
   const activeLyricIndexRef = useRef<number>(-1);
+  const currentLyricsSyncStatusRef = useRef<LyricSyncStatus>('UNSYNCED');
   const qualifiedStreamLoggedRef = useRef<Record<string, boolean>>({});
 
   useEffect(() => { currentSongRef.current = currentSong; }, [currentSong]);
@@ -78,6 +112,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { isShuffleRef.current = isShuffle; }, [isShuffle]);
   useEffect(() => { currentLyricsLinesRef.current = currentLyricsLines; }, [currentLyricsLines]);
   useEffect(() => { activeLyricIndexRef.current = activeLyricIndex; }, [activeLyricIndex]);
+  useEffect(() => { currentLyricsSyncStatusRef.current = currentLyricsSyncStatus; }, [currentLyricsSyncStatus]);
 
   const playSong = useCallback((song: Song, customQueue?: Song[]) => {
     const audio = audioRef.current;
@@ -199,31 +234,11 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       audio.currentTime = seconds;
       setCurrentTime(seconds);
 
+      const isSynced = currentLyricsSyncStatusRef.current === 'SYNCED';
       const lines = currentLyricsLinesRef.current;
-      if (lines.length > 0) {
-        const currentMs = seconds * 1000;
-        let lineIdx = -1;
-        if (currentMs <= lines[0].startTimeMs) {
-          lineIdx = 0;
-        } else if (currentMs >= lines[lines.length - 1].endTimeMs) {
-          lineIdx = lines.length - 1;
-        } else {
-          lineIdx = lines.findIndex(
-            (l) => currentMs >= l.startTimeMs && currentMs <= l.endTimeMs
-          );
-          if (lineIdx === -1) {
-            for (let i = lines.length - 1; i >= 0; i--) {
-              if (currentMs >= lines[i].startTimeMs) {
-                lineIdx = i;
-                break;
-              }
-            }
-          }
-        }
-        if (lineIdx === -1) lineIdx = 0;
-        activeLyricIndexRef.current = lineIdx;
-        setActiveLyricIndex(lineIdx);
-      }
+      const lineIdx = findActiveLyricIndex(seconds * 1000, lines, isSynced);
+      activeLyricIndexRef.current = lineIdx;
+      setActiveLyricIndex(lineIdx);
     } catch (e) {
       console.warn('Seek error:', e);
     }
@@ -295,32 +310,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
       setDuration(audio.duration);
     }
 
+    const isSynced = currentLyricsSyncStatusRef.current === 'SYNCED';
     const lines = currentLyricsLinesRef.current;
-    if (lines.length > 0) {
-      const currentMs = audio.currentTime * 1000;
-      let lineIdx = -1;
-      if (currentMs <= lines[0].startTimeMs) {
-        lineIdx = 0;
-      } else if (currentMs >= lines[lines.length - 1].endTimeMs) {
-        lineIdx = lines.length - 1;
-      } else {
-        lineIdx = lines.findIndex(
-          (l) => currentMs >= l.startTimeMs && currentMs <= l.endTimeMs
-        );
-        if (lineIdx === -1) {
-          for (let i = lines.length - 1; i >= 0; i--) {
-            if (currentMs >= lines[i].startTimeMs) {
-              lineIdx = i;
-              break;
-            }
-          }
-        }
-      }
-      if (lineIdx === -1) lineIdx = 0;
-      if (lineIdx !== activeLyricIndexRef.current) {
-        activeLyricIndexRef.current = lineIdx;
-        setActiveLyricIndex(lineIdx);
-      }
+    const lineIdx = findActiveLyricIndex(audio.currentTime * 1000, lines, isSynced);
+    if (lineIdx !== activeLyricIndexRef.current) {
+      activeLyricIndexRef.current = lineIdx;
+      setActiveLyricIndex(lineIdx);
     }
   };
 
@@ -348,32 +343,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         }).catch(() => {});
       }
 
+      const isSynced = currentLyricsSyncStatusRef.current === 'SYNCED';
       const lines = currentLyricsLinesRef.current;
-      if (lines.length > 0) {
-        const currentMs = cTime * 1000;
-        let lineIdx = -1;
-        if (currentMs <= lines[0].startTimeMs) {
-          lineIdx = 0;
-        } else if (currentMs >= lines[lines.length - 1].endTimeMs) {
-          lineIdx = lines.length - 1;
-        } else {
-          lineIdx = lines.findIndex(
-            (l) => currentMs >= l.startTimeMs && currentMs <= l.endTimeMs
-          );
-          if (lineIdx === -1) {
-            for (let i = lines.length - 1; i >= 0; i--) {
-              if (currentMs >= lines[i].startTimeMs) {
-                lineIdx = i;
-                break;
-              }
-            }
-          }
-        }
-        if (lineIdx === -1) lineIdx = 0;
-        if (lineIdx !== activeLyricIndexRef.current) {
-          activeLyricIndexRef.current = lineIdx;
-          setActiveLyricIndex(lineIdx);
-        }
+      const lineIdx = findActiveLyricIndex(cTime * 1000, lines, isSynced);
+      if (lineIdx !== activeLyricIndexRef.current) {
+        activeLyricIndexRef.current = lineIdx;
+        setActiveLyricIndex(lineIdx);
       }
     }, 100);
 
@@ -398,7 +373,12 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!currentSong) {
       setCurrentLyricsLines([]);
+      currentLyricsLinesRef.current = [];
       setActiveLyricIndex(-1);
+      activeLyricIndexRef.current = -1;
+      setCurrentLyricsSyncStatus('UNSYNCED');
+      currentLyricsSyncStatusRef.current = 'UNSYNCED';
+      setCurrentLyricsFullText('');
       return;
     }
 
@@ -408,20 +388,21 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         const res = await fetch(`/api/v1/lyrics/${currentSong.id}`);
         if (res.ok && isMounted) {
           const data = await res.json();
-          if (data.data?.lines && data.data.lines.length > 0) {
-            const fetchedLines = data.data.lines;
+          if (data.data) {
+            const isSynced = data.data.syncStatus === 'SYNCED' || (data.data.isSynced && data.data.syncStatus !== 'UNSYNCED');
+            const syncStatus: LyricSyncStatus = data.data.syncStatus || (isSynced ? 'SYNCED' : 'UNSYNCED');
+            setCurrentLyricsSyncStatus(syncStatus);
+            currentLyricsSyncStatusRef.current = syncStatus;
+            setCurrentLyricsFullText(data.data.fullText || '');
+
+            const fetchedLines: LyricLine[] = data.data.lines || [];
             setCurrentLyricsLines(fetchedLines);
+            currentLyricsLinesRef.current = fetchedLines;
 
             // Immediately calculate initial active line
             const audio = audioRef.current;
             const currentMs = audio ? audio.currentTime * 1000 : 0;
-            let initialIdx = 0;
-            if (currentMs > 0) {
-              const match = fetchedLines.findIndex(
-                (l: LyricLine) => currentMs >= l.startTimeMs && currentMs <= l.endTimeMs
-              );
-              if (match !== -1) initialIdx = match;
-            }
+            const initialIdx = isSynced ? findActiveLyricIndex(currentMs, fetchedLines, true) : -1;
             activeLyricIndexRef.current = initialIdx;
             setActiveLyricIndex(initialIdx);
           }
@@ -453,6 +434,8 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         isExpandedOpen,
         activeLyricIndex,
         currentLyricsLines,
+        currentLyricsSyncStatus,
+        currentLyricsFullText,
         playSong,
         togglePlay,
         seek,

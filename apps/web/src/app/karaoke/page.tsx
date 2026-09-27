@@ -80,7 +80,7 @@ function KaraokeStudioContent() {
         const res = await fetch('/api/v1/catalog/songs?limit=80&sort=popularity');
         if (res.ok) {
           const json = await res.json();
-          const items: TrackItem[] = json.data.songs || [];
+          const items: TrackItem[] = Array.isArray(json.data) ? json.data : (json.data?.songs || []);
           setTracks(items);
 
           if (items.length > 0) {
@@ -463,7 +463,7 @@ function KaraokeStudioContent() {
                       key={line.id || idx}
                       ref={isActive ? activeLineRef : null}
                       onClick={() => handleSeek(line.startTimeMs / 1000)}
-                      className={`cursor-pointer transition-all duration-300 px-5 py-3 rounded-2xl flex items-center justify-between gap-4 text-center select-none ${
+                      className={`cursor-pointer transition-all duration-300 px-6 py-3.5 rounded-2xl flex items-center justify-center text-center select-none ${
                         isActive
                           ? 'text-amber-300 font-extrabold text-lg sm:text-2xl scale-105 bg-amber-500/20 border-2 border-amber-400/60 shadow-[0_0_25px_rgba(245,158,11,0.35)]'
                           : isPassed
@@ -471,10 +471,7 @@ function KaraokeStudioContent() {
                           : 'text-slate-200 font-medium text-sm sm:text-base hover:text-white hover:bg-white/5'
                       }`}
                     >
-                      <span className="flex-1">{line.text}</span>
-                      <span className="text-xs font-mono opacity-50 flex-shrink-0">
-                        {formatDuration(Math.floor(line.startTimeMs / 1000))}
-                      </span>
+                      <span className="leading-relaxed">{line.text}</span>
                     </div>
                   );
                 })}

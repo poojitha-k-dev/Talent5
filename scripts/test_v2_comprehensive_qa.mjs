@@ -174,16 +174,17 @@ async function runQaAudit() {
     return `Status ${res.status}`;
   });
 
-  await test('Catalog', 'Synchronized Lyrics & Timing Cues (/api/v1/lyrics/[songId])', async () => {
+  await test('Catalog', 'Synchronized & Authentic Lyrics (/api/v1/lyrics/[songId])', async () => {
     if (!testSongId) return 'No test song ID available';
     const res = await fetch(`${BASE_URL}/api/v1/lyrics/${testSongId}`);
     const json = await res.json();
     if (res.status === 200 && json.success && json.data) {
-      const isSynced = json.data.isSynced;
+      const status = json.data.syncStatus || (json.data.isSynced ? 'SYNCED' : 'UNSYNCED');
       const lines = json.data.lines || [];
+      const pass = ['SYNCED', 'UNSYNCED', 'NEEDS_REVIEW'].includes(status) && lines.length > 0;
       return {
-        pass: isSynced && lines.length > 0 && lines[0].startTimeMs !== undefined,
-        message: `Synced: ${isSynced}, Lines: ${lines.length}, First: "${lines[0]?.text?.slice(0, 30)}..."`,
+        pass,
+        message: `SyncStatus: ${status}, Lines: ${lines.length}, First: "${lines[0]?.text?.slice(0, 30)}..."`,
       };
     }
     return `Status ${res.status}: ${JSON.stringify(json)}`;

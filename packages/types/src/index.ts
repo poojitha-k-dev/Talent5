@@ -116,12 +116,21 @@ export interface Song {
 }
 
 // --- LYRICS ARCHITECTURE ---
+export type LyricSyncStatus = 'UNSYNCED' | 'SYNCING' | 'SYNCED' | 'NEEDS_REVIEW';
+
+export interface LyricWord {
+  text: string;
+  startTimeMs: number;
+  endTimeMs: number;
+}
+
 export interface LyricLine {
   id: string;
   sequenceOrder: number;
   startTimeMs: number;
   endTimeMs: number;
   text: string;
+  words?: LyricWord[];
 }
 
 export interface Lyrics {
@@ -129,6 +138,8 @@ export interface Lyrics {
   songId: string;
   languageId: string;
   isSynced: boolean;
+  syncStatus: LyricSyncStatus;
+  version: number;
   fullText: string;
   lines: LyricLine[];
 }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   LayoutDashboard,
+  Users,
   UserCheck,
   FileMusic,
   ShieldAlert,
@@ -35,6 +36,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const navItems = [
     { name: 'Overview', href: '/admin', icon: LayoutDashboard },
+    { name: 'Users & Signups', href: '/admin/users', icon: Users },
     { name: 'Auditions & Creators', href: '/admin/applications', icon: UserCheck },
     { name: 'Content Moderation', href: '/admin/content-review', icon: FileMusic },
     { name: 'Rights & Licensing', href: '/admin/rights', icon: Scale },

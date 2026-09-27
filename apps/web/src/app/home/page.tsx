@@ -357,7 +357,7 @@ export default function HomePage() {
 
                 <div className="flex-1 min-w-0">
                   <Link
-                    href={`/music/${song.slug || song.id}`}
+                    href={`/song/${song.id}`}
                     className="text-sm font-bold text-slate-900 dark:text-white hover:text-amber-600 dark:hover:text-amber-400 truncate block transition-colors drop-shadow-sm"
                     title={song.title}
                   >

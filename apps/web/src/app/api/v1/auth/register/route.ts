@@ -48,8 +48,8 @@ export async function POST(req: NextRequest) {
       await client.query('BEGIN');
 
       const userInsert = await client.query(
-        `INSERT INTO users (email, password_hash, full_name, username, is_verified, status)
-         VALUES ($1, $2, $3, $4, FALSE, 'ACTIVE')
+        `INSERT INTO users (email, password_hash, full_name, username, auth_provider, is_verified, status)
+         VALUES ($1, $2, $3, $4, 'password', FALSE, 'ACTIVE')
          RETURNING id, email, full_name as "fullName", username, avatar_url as "avatarUrl", 
                    phone, is_verified as "isVerified", status, created_at as "createdAt"`,
         [cleanEmail, passwordHash, fullName.trim(), cleanUsername]

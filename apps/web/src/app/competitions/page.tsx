@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Award, Trophy, Calendar, Sparkles, CheckCircle2, ChevronRight } from 'lucide-react';
-import { formatINR } from '@talent5/utils';
+import { formatINR, formatDate } from '@talent5/utils';
 import { Button } from '@/components/ui/Button';
 
 export default function CompetitionsPage() {
@@ -23,25 +23,23 @@ export default function CompetitionsPage() {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Header */}
-      <div className="text-center max-w-2xl mx-auto space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-bold border border-amber-500/30">
-          <Trophy className="w-3.5 h-3.5 text-amber-400" />
-          <span>Talent5 Tournaments</span>
+      <div>
+        <div className="flex items-center gap-2 text-amber-500 font-bold text-xs uppercase tracking-widest mb-1">
+          <Trophy className="w-4 h-4" />
+          <span>Competitions & Awards</span>
         </div>
-        <h1 className="text-3xl sm:text-5xl font-extrabold font-display text-white">
-          Nationwide Music Challenges
+        <h1 className="text-3xl sm:text-4xl font-extrabold font-display text-white">
+          Desi Music Tournaments
         </h1>
-        <p className="text-xs sm:text-sm text-gray-400">
-          Compete in nationwide independent music challenges. Winners receive cash prizes paid directly to UPI wallets and prominent spotlight features.
+        <p className="text-sm text-gray-400 mt-1">
+          Vote for rising grassroots creators, evaluate pure vocal authenticity, and participate in community tournaments.
         </p>
       </div>
 
-      {/* Competitions Grid */}
       {loading ? (
-        <div className="py-20 flex flex-col items-center justify-center">
-          <div className="w-8 h-8 border-3 border-amber-500 border-t-transparent rounded-full animate-spin mb-2" />
-          <p className="text-xs text-gray-400">Loading Tournaments...</p>
-        </div>
+        <div className="p-12 text-center text-gray-400 text-sm">Loading tournaments...</div>
+      ) : competitions.length === 0 ? (
+        <div className="p-12 text-center text-gray-400 text-sm">No active competitions right now.</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           {competitions.map((comp) => (
@@ -80,7 +78,7 @@ export default function CompetitionsPage() {
                       {comp.eligibleLanguages?.join(', ') || 'All Indian Languages'}
                     </p>
                     <p>
-                      <strong className="text-gray-300">Timeline:</strong> {comp.startDate} to {comp.endDate}
+                      <strong className="text-gray-300">Timeline:</strong> {formatDate(comp.startDate)} – {formatDate(comp.endDate)}
                     </p>
                   </div>
                 </div>

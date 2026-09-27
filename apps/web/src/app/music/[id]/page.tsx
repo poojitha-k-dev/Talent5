@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import Link from 'next/link';
 import {
   Play,
@@ -48,6 +48,17 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
   const [commentSubmitting, setCommentSubmitting] = useState<boolean>(false);
   const [lyricsMode, setLyricsMode] = useState<'stream' | 'full'>('stream');
   const [isExpandedFullLyrics, setIsExpandedFullLyrics] = useState<boolean>(false);
+
+  const activeLyricRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (currentSong?.id === song?.id && activeLyricIndex >= 0 && activeLyricRef.current) {
+      activeLyricRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }
+  }, [activeLyricIndex, currentSong?.id, song?.id]);
 
   useEffect(() => {
     const fetchSongData = async () => {
@@ -346,7 +357,7 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      Synchronized ({lyrics.lines?.length || 0} lines)
+                      Synchronized
                     </button>
                     <button
                       onClick={() => setLyricsMode('full')}
@@ -356,7 +367,7 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
                           : 'text-slate-400 hover:text-white'
                       }`}
                     >
-                      Total Lyrics
+                      Full Text
                     </button>
                   </div>
                 )}
@@ -372,7 +383,7 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
                     }}
                     className="text-xs font-bold text-amber-400 hover:text-amber-300 hover:underline px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/25 flex items-center gap-1.5 transition-all hover:scale-105"
                   >
-                    <span>Full Teleprompter</span>
+                    <span>Full Screen</span>
                     <span>→</span>
                   </button>
                 </div>
@@ -382,37 +393,28 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
             {lyrics ? (
               lyricsMode === 'stream' && lyrics.lines && lyrics.lines.length > 0 ? (
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs text-amber-300/80 mb-2">
-                    <span>Click any line to jump audio to that exact moment:</span>
-                    {isCurrentSong && isPlaying && (
-                      <span className="flex items-center gap-1.5 text-amber-400 font-bold animate-pulse">
-                        <span className="w-2 h-2 rounded-full bg-amber-400" />
-                        Live Synchronized
-                      </span>
-                    )}
-                  </div>
-                  <div className="bg-midnight-950/80 border border-white/10 p-4 rounded-2xl max-h-96 overflow-y-auto space-y-2 divide-y divide-white/5">
+                  <div className="bg-midnight-950/80 border border-white/10 p-5 rounded-2xl max-h-96 overflow-y-auto space-y-2 scrollbar-thin">
                     {lyrics.lines.map((line: any, idx: number) => {
-                      const isActive = isCurrentSong && idx === activeLyricIndex;
+                      const isActive = isCurrentSong && Boolean(lyrics.isSynced) && idx === activeLyricIndex && activeLyricIndex >= 0;
                       return (
                         <div
                           key={line.id || idx}
+                          ref={isActive ? activeLyricRef : null}
                           onClick={() => {
-                            if (!isCurrentSong) {
-                              playSong(song);
+                            if (lyrics.isSynced) {
+                              if (!isCurrentSong) {
+                                playSong(song);
+                              }
+                              seek(line.startTimeMs / 1000);
                             }
-                            seek(line.startTimeMs / 1000);
                           }}
-                          className={`pt-2 cursor-pointer transition-all duration-200 px-3 py-2 rounded-xl flex items-start justify-between gap-4 ${
+                          className={`cursor-pointer transition-all duration-200 px-4 py-3 rounded-xl flex items-center justify-center text-center ${
                             isActive
-                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold shadow-[0_0_15px_rgba(245,158,11,0.2)]'
-                              : 'text-slate-200 hover:bg-white/5 hover:text-white font-medium'
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold text-lg scale-[1.02] shadow-[0_0_15px_rgba(245,158,11,0.2)]'
+                              : 'text-slate-200 hover:bg-white/5 hover:text-white font-medium text-base'
                           }`}
                         >
-                          <span className="text-sm sm:text-base leading-relaxed">{line.text}</span>
-                          <span className="text-[11px] font-mono text-slate-400 flex-shrink-0 mt-0.5">
-                            {formatDuration(Math.floor(line.startTimeMs / 1000))}
-                          </span>
+                          <span className="leading-relaxed">{line.text}</span>
                         </div>
                       );
                     })}
@@ -433,7 +435,7 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
                     onClick={() => setIsExpandedFullLyrics(!isExpandedFullLyrics)}
                     className="text-xs font-bold text-amber-400 hover:text-amber-300 transition-colors"
                   >
-                    {isExpandedFullLyrics ? '▲ Collapse Total Lyrics' : '▼ View Entire Total Song Lyrics'}
+                    {isExpandedFullLyrics ? '▲ Collapse Lyrics' : '▼ View Full Lyrics'}
                   </button>
                 </div>
               )
@@ -446,8 +448,8 @@ export default function SongDetailPage({ params }: { params: { id: string } }) {
 
           {lyrics && (
             <div className="pt-4 border-t border-white/10 mt-4 flex items-center justify-between text-xs text-slate-300 flex-wrap gap-2">
-              <span className="font-medium">
-                Total Synchronized Lines: <strong className="text-amber-400 font-bold">{lyrics.lines?.length || 0}</strong>
+              <span className="text-slate-400">
+                Synchronized playback enabled
               </span>
               <div className="flex items-center gap-2">
                 <Link

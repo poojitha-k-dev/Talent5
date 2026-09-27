@@ -49,8 +49,9 @@ export const Navbar: React.FC = () => {
     Array.isArray(user?.roles) &&
     (user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN'));
 
-  // Do not render consumer navbar on Admin or Login pages
-  if (pathname.startsWith('/admin') || pathname === '/login' || pathname === '/register') {
+  // Do not render consumer navbar on Landing Page (unauthenticated /), Admin, or Login pages
+  const isLandingPage = pathname === '/' && !user;
+  if (isLandingPage || pathname.startsWith('/admin') || pathname === '/login' || pathname === '/register') {
     return null;
   }
 
@@ -92,12 +93,12 @@ export const Navbar: React.FC = () => {
         {/* Search Bar */}
         <form
           onSubmit={handleSearchSubmit}
-          className="hidden md:flex flex-1 max-w-sm lg:max-w-md relative items-center"
+          className="hidden md:flex flex-1 max-w-xs lg:max-w-md xl:max-w-lg relative items-center"
         >
           <Search className="w-4 h-4 absolute left-3.5 pointer-events-none text-slate-400 dark:text-gray-400" />
           <input
             type="text"
-            placeholder="Search songs, artists, lyrics, ragas..."
+            placeholder="Search songs, artists, lyrics..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2 rounded-full text-xs bg-slate-100/90 dark:bg-midnight-900/90 border border-slate-200 dark:border-white/10 text-slate-900 dark:text-gray-200 placeholder-slate-400 dark:placeholder-gray-500 focus:outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/60 transition-all"

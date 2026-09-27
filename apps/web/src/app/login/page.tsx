@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -15,7 +15,11 @@ import {
   LogIn,
   Shield,
   ArrowRight,
+  ArrowLeft,
   CheckCircle2,
+  Check,
+  KeyRound,
+  RotateCcw,
   HelpCircle,
   X,
   Radio,
@@ -31,6 +35,30 @@ function WaveMark({ size = 24 }: { size?: number }) {
       <rect x="12" y="2" width="3" height="20" rx="1.5" fill="currentColor" />
       <rect x="17" y="6" width="3" height="12" rx="1.5" fill="currentColor" />
       <rect x="22" y="10" width="3" height="4" rx="1.5" fill="currentColor" opacity="0.85" />
+    </svg>
+  );
+}
+
+// Official Google "G" Icon
+function GoogleIcon({ className = 'w-4 h-4' }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24">
+      <path
+        fill="#4285F4"
+        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.8-2.4 3.65v3.03h3.88c2.27-2.09 3.665-5.17 3.665-9.12z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.03c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.13C3.28 21.36 7.34 24 12 24z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.28 14.29c-.25-.72-.38-1.49-.38-2.29s.13-1.57.38-2.29V6.57H1.25C.45 8.15 0 9.99 0 12s.45 3.85 1.25 5.43l4.03-3.14z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.28 2.64 1.25 6.57l4.03 3.14c.95-2.83 3.6-4.96 6.72-4.96z"
+      />
     </svg>
   );
 }
@@ -98,7 +126,7 @@ const DEMO_PROFILES: DemoProfile[] = [
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectPath = searchParams.get('redirect') || '/home';
+  const redirectPath = searchParams.get('redirect') || '/';
   const initialMode = searchParams.get('mode') === 'register' ? 'register' : 'login';
 
   const { login } = useAuth();
@@ -113,6 +141,171 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [selectedDemo, setSelectedDemo] = useState<string | null>(null);
   const [showForgotModal, setShowForgotModal] = useState(false);
+  const [forgotStep, setForgotStep] = useState<'email' | 'verify' | 'reset' | 'success'>('email');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [showConfirmPw, setShowConfirmPw] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotError, setForgotError] = useState<string | null>(null);
+  const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
+  const [isGoogleUser, setIsGoogleUser] = useState(false);
+
+  // Detect Google OAuth callback tokens or errors
+  useEffect(() => {
+    const googleAuth = searchParams.get('google_auth');
+    const tokenFromUrl = searchParams.get('token');
+    const oauthError = searchParams.get('error');
+
+    if (oauthError) {
+      setError(decodeURIComponent(oauthError));
+    }
+
+    if (googleAuth === 'success' && tokenFromUrl) {
+      fetch('/api/v1/auth/me', {
+        headers: { Authorization: `Bearer ${tokenFromUrl}` },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data?.data?.user) {
+            login(tokenFromUrl, data.data.user);
+            router.replace(redirectPath);
+          }
+        })
+        .catch((err) => {
+          console.error('[Talent5 OAuth] Failed to fetch session:', err);
+          setError('Failed to establish session after Google sign-in.');
+        });
+    }
+  }, [searchParams, login, redirectPath, router]);
+
+  const openForgotModal = () => {
+    setForgotStep('email');
+    setForgotEmail(email || '');
+    setVerificationCode('');
+    setResetToken(null);
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowNewPw(false);
+    setShowConfirmPw(false);
+    setForgotError(null);
+    setForgotSuccess(null);
+    setIsGoogleUser(false);
+    setShowForgotModal(true);
+  };
+
+  const handleSendVerification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!forgotEmail.trim()) {
+      setForgotError('Please enter your email address.');
+      return;
+    }
+    setForgotLoading(true);
+    setForgotError(null);
+    setIsGoogleUser(false);
+    try {
+      const res = await fetch('/api/v1/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: forgotEmail.trim() }),
+      });
+      const data = await res.json();
+      if (data.isGoogleAccount) {
+        setIsGoogleUser(true);
+        setForgotError(null);
+        return;
+      }
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to send verification code.');
+      }
+      setForgotSuccess(data.message || 'Verification code sent to your email.');
+      setForgotStep('verify');
+    } catch (err: any) {
+      setForgotError(err.message || 'Failed to send verification code.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const [resetToken, setResetToken] = useState<string | null>(null);
+
+  const handleVerifyCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!verificationCode.trim()) {
+      setForgotError('Please enter the 6-digit verification code.');
+      return;
+    }
+    setForgotLoading(true);
+    setForgotError(null);
+    try {
+      const res = await fetch('/api/v1/auth/verify-otp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: forgotEmail.trim(),
+          otp: verificationCode.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Invalid verification code.');
+      }
+      setResetToken(data.resetToken || null);
+      setForgotStep('reset');
+    } catch (err: any) {
+      setForgotError(err.message || 'Verification failed.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || !confirmPassword) {
+      setForgotError('Please fill in both password fields.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setForgotError('New password must be at least 6 characters long.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setForgotError('Passwords do not match. Please re-enter both carefully.');
+      return;
+    }
+    setForgotLoading(true);
+    setForgotError(null);
+    try {
+      const res = await fetch('/api/v1/auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          resetToken,
+          email: forgotEmail.trim(),
+          newPassword,
+          confirmPassword,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.message || 'Failed to update password.');
+      }
+      setForgotSuccess(data.message);
+      setForgotStep('success');
+    } catch (err: any) {
+      setForgotError(err.message || 'Failed to update password.');
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  const handleCompleteReset = () => {
+    setEmail(forgotEmail);
+    setPassword(newPassword);
+    setShowForgotModal(false);
+  };
 
   // Password strength calculation
   const passwordStrength = useMemo(() => {
@@ -274,16 +467,14 @@ function LoginForm() {
 
       {/* ─── MAIN AUTH CONTAINER ─── */}
       <div className="relative z-10 w-full max-w-[440px]">
-        {/* Upper Brand Badge */}
-        <div className="flex items-center justify-between px-2 mb-3">
+        {/* Upper Back Navigation & Brand Badge */}
+        <div className="flex items-center justify-between px-1 mb-4">
           <Link
-            href="/home"
-            className="inline-flex items-center gap-2 text-xs text-gray-400 hover:text-white transition-colors"
+            href="/"
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-semibold text-gray-300 hover:text-amber-400 transition-all group shadow-sm backdrop-blur-md"
           >
-            <span className="p-1.5 rounded-lg bg-white/5 border border-white/10 text-amber-400">
-              <WaveMark size={14} />
-            </span>
-            <span className="font-semibold tracking-wide">Talent5 Desi Music</span>
+            <ArrowLeft className="w-3.5 h-3.5 group-hover:-translate-x-0.5 transition-transform text-amber-400" />
+            <span>Back to Landing Page</span>
           </Link>
 
           <EqualizerVisualizer />
@@ -435,6 +626,26 @@ function LoginForm() {
             </div>
           )}
 
+          {/* ─── GOOGLE OAUTH ONE-TAP SIGN-IN BUTTON ─── */}
+          <div className="mb-4">
+            <a
+              href={`/api/v1/auth/google?redirect=${encodeURIComponent(redirectPath)}`}
+              className="w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2.5 transition-all bg-white hover:bg-gray-100 text-gray-900 border border-white/20 shadow-md hover:shadow-lg cursor-pointer group"
+            >
+              <GoogleIcon className="w-4 h-4 flex-shrink-0" />
+              <span>{mode === 'login' ? 'Continue with Google' : 'Sign up with Google'}</span>
+            </a>
+
+            <div className="relative my-4 flex items-center justify-center">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-white/10" />
+              </div>
+              <span className="relative px-3 bg-[#0f0c1a] text-[10px] uppercase tracking-wider text-gray-400 font-mono">
+                or continue with email
+              </span>
+            </div>
+          </div>
+
           {/* Form */}
           <form onSubmit={handleAuthSubmit} className="space-y-3.5">
             {/* Register-Only Fields */}
@@ -530,7 +741,7 @@ function LoginForm() {
                 {mode === 'login' ? (
                   <button
                     type="button"
-                    onClick={() => setShowForgotModal(true)}
+                    onClick={openForgotModal}
                     className="text-[11px] text-amber-400/90 hover:text-amber-300 transition-colors"
                   >
                     Forgot password?
@@ -674,70 +885,333 @@ function LoginForm() {
         </div>
       </div>
 
-      {/* ─── FORGOT PASSWORD ASSISTANCE MODAL ─── */}
+      {/* ─── FORGOT PASSWORD INTERACTIVE MULTI-STEP MODAL ─── */}
       {showForgotModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full max-w-md rounded-2xl bg-[#0F0C1B] border border-white/10 p-6 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-amber-400">
-                <HelpCircle className="w-5 h-5" />
-                <h3 className="font-display font-bold text-base text-white">
-                  Talent5 Credentials Recovery
-                </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="w-full max-w-md rounded-3xl bg-[#0F0C1B] border border-white/10 p-6 sm:p-7 shadow-2xl space-y-5 relative">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-base text-white">
+                    {forgotStep === 'email' && 'Reset Password'}
+                    {forgotStep === 'verify' && 'Verify Your Identity'}
+                    {forgotStep === 'reset' && 'Re-enter & Reset Password'}
+                    {forgotStep === 'success' && 'Password Updated!'}
+                  </h3>
+                  <p className="text-[11px] text-gray-400">
+                    {forgotStep === 'email' && 'Step 1 of 3: Verification Email'}
+                    {forgotStep === 'verify' && 'Step 2 of 3: Enter 6-Digit Code'}
+                    {forgotStep === 'reset' && 'Step 3 of 3: Dual Password Verification'}
+                    {forgotStep === 'success' && 'Ready to sign in'}
+                  </p>
+                </div>
               </div>
               <button
                 type="button"
                 onClick={() => setShowForgotModal(false)}
-                className="p-1 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+                className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="text-xs text-gray-300 space-y-3 leading-relaxed">
-              <p>
-                In the development & staging environment, default credentials are pre-seeded for all roles:
-              </p>
+            {/* Error Banner */}
+            {forgotError && (
+              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs flex items-center gap-2 animate-shake">
+                <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                <span>{forgotError}</span>
+              </div>
+            )}
 
-              <div className="p-3 rounded-xl bg-black/50 border border-white/5 font-mono space-y-1.5 text-[11px]">
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Listener:</span>
-                  <span className="text-amber-300">listener@talent5.com / Talent5Listener2026!</span>
+            {/* ─── STEP 1: ASK FOR EMAIL (OR SHOW GOOGLE SIGN-IN PROMPT) ─── */}
+            {forgotStep === 'email' && (
+              isGoogleUser ? (
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-3.5 animate-fadeIn">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+                    <GoogleIcon className="w-4 h-4 flex-shrink-0" />
+                    <span>Google Account Detected</span>
+                  </div>
+                  <p className="text-xs text-gray-200 leading-relaxed">
+                    This account was created with <strong className="text-white">Google Sign-In</strong> and does not have a Talent5 password. Please continue with Google to sign in.
+                  </p>
+                  <a
+                    href={`/api/v1/auth/google?redirect=${encodeURIComponent(redirectPath)}`}
+                    className="w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2.5 transition-all bg-white hover:bg-gray-100 text-gray-900 shadow-md cursor-pointer"
+                  >
+                    <GoogleIcon className="w-4 h-4 flex-shrink-0" />
+                    <span>Continue with Google</span>
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsGoogleUser(false);
+                      setForgotError(null);
+                    }}
+                    className="text-[11px] text-gray-400 hover:text-white underline block text-center w-full pt-1"
+                  >
+                    ← Try a different email
+                  </button>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Creator:</span>
-                  <span className="text-teal-300">creator@talent5.com / Talent5Creator2026!</span>
+              ) : (
+                <form onSubmit={handleSendVerification} className="space-y-4">
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    Please confirm your registered email address. We will send a secure 6-digit verification code to reverify your account.
+                  </p>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                      Email Address
+                    </label>
+                    <div className="relative">
+                      <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                      <input
+                        type="email"
+                        required
+                        placeholder="you@example.com"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/40 transition-all bg-white/[0.04] border border-white/10"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-end">
+                    <button
+                      type="submit"
+                      disabled={forgotLoading}
+                      className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-midnight-950 font-bold text-xs shadow-saffronGlow transition-all flex items-center gap-1.5"
+                    >
+                      {forgotLoading ? (
+                        <div className="w-3.5 h-3.5 border-2 border-midnight-950 border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <>
+                          <span>Send Verification Code</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )
+            )}
+
+            {/* ─── STEP 2: ENTER CODE FROM GMAIL ─── */}
+            {forgotStep === 'verify' && (
+              <form onSubmit={handleVerifyCode} className="space-y-4">
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 space-y-2.5">
+                  <div className="flex items-center gap-2 text-xs font-bold text-amber-300">
+                    <Mail className="w-4 h-4" />
+                    <span>Check Your Email Inbox</span>
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed">
+                    We sent a 6-digit verification code to <strong className="text-white font-mono">{forgotEmail}</strong>.
+                  </p>
+                  <p className="text-[11px] text-amber-200/90 leading-relaxed bg-amber-500/10 p-2.5 rounded-lg border border-amber-500/20">
+                    📌 <strong>Can&apos;t find the email?</strong> Please check your <strong>Spam / Junk</strong> folder or <strong>Updates</strong> tab. If it is in Spam, click <em>&quot;Report as not spam&quot;</em>.
+                  </p>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-400">Admin:</span>
-                  <span className="text-rose-300">admin@talent5.com / Talent5Admin2026!</span>
+
+                {forgotSuccess && (
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs flex items-center gap-2 animate-fadeIn">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                    <span>{forgotSuccess}</span>
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
+                    Enter 6-Digit Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    required
+                    autoFocus
+                    placeholder="• • • • • •"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, ''))}
+                    className="w-full text-center tracking-[0.5em] py-3.5 rounded-xl text-xl font-mono text-white placeholder-gray-600 focus:outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/40 transition-all bg-white/[0.04] border border-white/10"
+                  />
+                  <p className="text-[10px] text-gray-500 text-center mt-1">
+                    Enter the 6 numbers from the verification email
+                  </p>
+                </div>
+
+                <div className="pt-2 flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotStep('email');
+                      setForgotError(null);
+                    }}
+                    className="text-xs text-gray-400 hover:text-white"
+                  >
+                    ← Change email
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={forgotLoading}
+                    onClick={handleSendVerification}
+                    className="text-xs text-amber-400/90 hover:text-amber-300 underline disabled:opacity-50 cursor-pointer"
+                  >
+                    Resend Code
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-midnight-950 font-bold text-xs shadow-saffronGlow transition-all"
+                  >
+                    {forgotLoading ? (
+                      <div className="w-3.5 h-3.5 border-2 border-midnight-950 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      'Verify OTP →'
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* ─── STEP 3: RE-ENTER PASSWORD TWO TIMES (DUAL VERIFICATION) ─── */}
+            {forgotStep === 'reset' && (
+              <form onSubmit={handleResetPassword} className="space-y-4">
+                <p className="text-xs text-gray-300 leading-relaxed">
+                  Please enter your new password <strong className="text-amber-400 font-semibold">two times</strong> to reverify and guarantee accuracy.
+                </p>
+
+                {/* 1st Entry: New Password */}
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">
+                    1. New Password
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                    <input
+                      type={showNewPw ? 'text' : 'password'}
+                      required
+                      placeholder="Minimum 6 characters"
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      className="w-full pl-10 pr-11 py-2.5 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/40 transition-all bg-white/[0.04] border border-white/10 font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPw(!showNewPw)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                    >
+                      {showNewPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2nd Entry: Re-enter Password to Reverify */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-[11px] font-semibold text-gray-400 uppercase tracking-wider">
+                      2. Re-enter Password (Reverify)
+                    </label>
+                    {confirmPassword.length > 0 && (
+                      <span
+                        className={`text-[10px] font-bold flex items-center gap-1 ${
+                          newPassword === confirmPassword ? 'text-emerald-400' : 'text-rose-400'
+                        }`}
+                      >
+                        {newPassword === confirmPassword ? (
+                          <>
+                            <Check className="w-3 h-3" /> Passwords match
+                          </>
+                        ) : (
+                          'Passwords do not match'
+                        )}
+                      </span>
+                    )}
+                  </div>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                    <input
+                      type={showConfirmPw ? 'text' : 'password'}
+                      required
+                      placeholder="Re-enter same password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      className={`w-full pl-10 pr-11 py-2.5 rounded-xl text-xs text-white placeholder-gray-500 focus:outline-none transition-all bg-white/[0.04] border font-mono ${
+                        confirmPassword.length > 0
+                          ? newPassword === confirmPassword
+                            ? 'border-emerald-500/50 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40'
+                            : 'border-rose-500/50 focus:border-rose-500 focus:ring-1 focus:ring-rose-500/40'
+                          : 'border-white/10 focus:border-amber-500/60 focus:ring-1 focus:ring-amber-500/40'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPw(!showConfirmPw)}
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                    >
+                      {showConfirmPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setForgotStep('verify');
+                      setForgotError(null);
+                    }}
+                    className="text-xs text-gray-400 hover:text-white"
+                  >
+                    ← Back
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={forgotLoading || !newPassword || newPassword !== confirmPassword}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-midnight-950 font-bold text-xs shadow-saffronGlow transition-all flex items-center gap-1.5"
+                  >
+                    {forgotLoading ? (
+                      <div className="w-3.5 h-3.5 border-2 border-midnight-950 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Update Password</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {/* ─── STEP 4: SUCCESS STATE ─── */}
+            {forgotStep === 'success' && (
+              <div className="text-center py-4 space-y-4 animate-fadeIn">
+                <div className="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto border border-emerald-500/30">
+                  <CheckCircle2 className="w-8 h-8" />
+                </div>
+
+                <div className="space-y-1">
+                  <h4 className="text-lg font-bold font-display text-white">Password Updated Successfully!</h4>
+                  <p className="text-xs text-gray-300 max-w-xs mx-auto">
+                    Your new password has been verified and saved to your account.
+                  </p>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={handleCompleteReset}
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-midnight-950 font-bold text-xs shadow-saffronGlow transition-all"
+                  >
+                    Sign In with New Password →
+                  </button>
                 </div>
               </div>
-
-              <p className="text-[11px] text-gray-400">
-                For custom accounts, credentials can be reset by a platform administrator inside the Command Center, or by re-registering with your chosen email address.
-              </p>
-            </div>
-
-            <div className="flex gap-2 justify-end pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowForgotModal(false);
-                  handleSelectDemo(DEMO_PROFILES[0], false);
-                }}
-                className="px-3.5 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 text-xs font-semibold border border-amber-500/30 transition-colors"
-              >
-                Prefill Listener Account
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowForgotModal(false)}
-                className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/15 text-white text-xs font-semibold transition-colors"
-              >
-                Close
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}

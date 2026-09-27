@@ -56,6 +56,13 @@ export default function CreatorStudioOverviewPage() {
         <Sparkles className="w-12 h-12 text-teal-400 mx-auto" />
         <h2 className="text-2xl font-bold font-display text-white">Creator Studio Access</h2>
         <p className="text-sm text-gray-400">Please sign in to access your creator dashboard.</p>
+        <div className="pt-2">
+          <Link href="/login">
+            <Button variant="peacock" size="md">
+              Sign In to Continue
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }
@@ -207,7 +214,7 @@ export default function CreatorStudioOverviewPage() {
                   />
                   <div className="min-w-0 flex-1">
                     <Link
-                      href={`/music/${song.id}`}
+                      href={`/song/${song.id}`}
                       className="text-sm font-semibold text-white hover:text-teal-400 truncate block"
                     >
                       {song.title}

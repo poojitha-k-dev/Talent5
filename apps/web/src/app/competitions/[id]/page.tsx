@@ -112,9 +112,14 @@ export default function CompetitionDetailPage() {
         );
         setToast(`Voted for ${entry.creatorName}!`);
         setTimeout(() => setToast(null), 3000);
+      } else {
+        setToast(json.error?.message || 'Vote could not be recorded');
+        setTimeout(() => setToast(null), 3500);
       }
     } catch (err) {
       console.error('Error voting:', err);
+      setToast('Network error while voting. Please try again.');
+      setTimeout(() => setToast(null), 3500);
     } finally {
       setVotingId(null);
     }

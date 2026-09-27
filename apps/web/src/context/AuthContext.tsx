@@ -28,6 +28,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         setToken(savedToken);
         setUser(JSON.parse(savedUser));
+
+        // Asynchronously verify token validity with server
+        fetch('/api/v1/auth/me', {
+          headers: { Authorization: `Bearer ${savedToken}` },
+        })
+          .then((res) => {
+            if (res.status === 401) {
+              // Token expired or invalid on server: clear session
+              setToken(null);
+              setUser(null);
+              localStorage.removeItem('talent5_token');
+              localStorage.removeItem('talent5_user');
+              document.cookie = 'talent5_token=; path=/; max-age=0; SameSite=Lax';
+            } else if (res.ok) {
+              return res.json();
+            }
+          })
+          .then((data) => {
+            if (data?.data?.user) {
+              setUser(data.data.user);
+              localStorage.setItem('talent5_user', JSON.stringify(data.data.user));
+            }
+          })
+          .catch(() => {
+            // Keep optimistic session if offline / network error
+          });
       } catch {
         localStorage.removeItem('talent5_token');
         localStorage.removeItem('talent5_user');
