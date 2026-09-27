@@ -117,14 +117,13 @@ export class StorageService {
   public getLocalFilePath(key: string): string {
     const safeKey = key.replace(/\.\./g, '');
     const candidatePaths = [
-      path.resolve(process.cwd(), 'apps/frontend/public/media', safeKey),
+      path.resolve(process.cwd(), 'frontend/public/media', safeKey),
       path.resolve(process.cwd(), '../frontend/public/media', safeKey),
-      path.resolve(process.cwd(), '../../apps/frontend/public/media', safeKey),
+      path.resolve(__dirname, '../../frontend/public/media', safeKey),
+      path.resolve(__dirname, '../../../frontend/public/media', safeKey),
       path.resolve(process.cwd(), 'public/media', safeKey),
       path.resolve(process.cwd(), '../public/media', safeKey),
-      path.resolve(__dirname, '../../../../apps/frontend/public/media', safeKey),
-      path.resolve(__dirname, '../../../frontend/public/media', safeKey),
-      path.resolve(process.cwd(), 'public/uploads', safeKey),
+      path.resolve(process.cwd(), 'frontend/public/uploads', safeKey),
       path.resolve(process.cwd(), '../frontend/public/uploads', safeKey),
     ];
 
@@ -135,7 +134,7 @@ export class StorageService {
     }
 
     // Default fallback
-    return path.resolve(process.cwd(), 'apps/frontend/public/media', safeKey);
+    return path.resolve(process.cwd(), 'frontend/public/media', safeKey);
   }
 }
 

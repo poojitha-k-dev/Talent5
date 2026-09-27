@@ -20,9 +20,9 @@
     ],
     "paths": {
       "@/*": ["./src/*"],
-      "@talent5/types": ["../../packages/types/src/index.ts"],
-      "@talent5/ui": ["../../packages/ui/src/index.ts"],
-      "@talent5/utils": ["../../packages/utils/src/index.ts"]
+      "@talent5/types": ["../packages/types/src/index.ts"],
+      "@talent5/ui": ["../packages/ui/src/index.ts"],
+      "@talent5/utils": ["../packages/utils/src/index.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

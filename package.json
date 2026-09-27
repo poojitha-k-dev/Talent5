@@ -5,18 +5,19 @@
   "description": "Talent5 - Real Voices. Original Stories. Desi Talent.",
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "frontend",
+    "backend"
   ],
   "scripts": {
-    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm --workspace=apps/backend run dev\" \"npm --workspace=apps/frontend run dev\"",
-    "dev:frontend": "npm --workspace=apps/frontend run dev",
-    "dev:backend": "npm --workspace=apps/backend run dev",
-    "dev:web": "npm --workspace=apps/frontend run dev",
+    "dev": "concurrently -n \"BACKEND,FRONTEND\" -c \"blue,green\" \"npm --workspace=backend run dev\" \"npm --workspace=frontend run dev\"",
+    "dev:frontend": "npm --workspace=frontend run dev",
+    "dev:backend": "npm --workspace=backend run dev",
+    "dev:web": "npm --workspace=frontend run dev",
     "build": "npm run build --workspaces --if-present",
-    "build:frontend": "npm --workspace=apps/frontend run build",
-    "build:backend": "npm --workspace=apps/backend run build",
-    "start:frontend": "npm --workspace=apps/frontend run start",
-    "start:backend": "npm --workspace=apps/backend run start",
+    "build:frontend": "npm --workspace=frontend run build",
+    "build:backend": "npm --workspace=backend run build",
+    "start:frontend": "npm --workspace=frontend run start",
+    "start:backend": "npm --workspace=backend run start",
     "test": "node scripts/run-tests.js",
     "db:init": "node infrastructure/database/init-db.js",
     "db:seed": "node infrastructure/database/seed-db.js",
