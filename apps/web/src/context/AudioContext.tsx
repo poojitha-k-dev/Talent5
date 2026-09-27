@@ -147,6 +147,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
     if (audio.src !== targetUrl) {
       audio.src = targetUrl;
+      audio.load();
     }
 
     audio.currentTime = 0;
@@ -466,7 +467,16 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         onError={(e) => {
           const audio = e.currentTarget;
           console.warn('Audio playback notice:', audio.error);
-          setIsPlaying(false);
+          const fallbackUrl =
+            'https://archive.org/download/01SundariNeeDivyaRUpamuJUDaMALavika/01%20-%20sundari%20nee%20divya%20rUpamu%20jUDa%20-%20mALavika.mp3';
+          if (audio.src !== fallbackUrl) {
+            audio.src = fallbackUrl;
+            audio.load();
+            audio.play().catch(() => {});
+            setIsPlaying(true);
+          } else {
+            setIsPlaying(false);
+          }
         }}
       />
       {children}

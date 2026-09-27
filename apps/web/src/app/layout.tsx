@@ -3,7 +3,7 @@ import './globals.css';
 import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { AudioProvider } from '@/context/AudioContext';
-import { Navbar } from '@/components/layout/Navbar';
+import { Sidebar } from '@/components/layout/Sidebar';
 import { Footer } from '@/components/layout/Footer';
 import { MobileNav } from '@/components/layout/MobileNav';
 import { GlobalPlayer } from '@/components/player/GlobalPlayer';
@@ -13,7 +13,7 @@ import { LandingBackground } from '@/components/layout/LandingBackground';
 export const metadata: Metadata = {
   title: 'Talent5 — Real Voices. Original Stories. Desi Talent.',
   description:
-    'India’s premier music discovery, streaming, independent creator, and talent platform celebrating Desi voices across 13 Indian languages.',
+    'India\'s premier music discovery, streaming, independent creator, and talent platform celebrating Desi voices across 13 Indian languages.',
   manifest: '/manifest.json',
   keywords: [
     'Indian music',
@@ -48,14 +48,25 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className="bg-[var(--bg-primary)] text-[var(--text-primary)] min-h-screen flex flex-col antialiased selection:bg-amber-500 selection:text-midnight-950 transition-colors duration-300">
+      <body className="bg-[#0a0b0e] text-[var(--text-primary)] min-h-screen antialiased selection:bg-orange-500 selection:text-white transition-colors duration-300 overflow-hidden">
         <ThemeProvider>
           <AuthProvider>
             <AudioProvider>
-              <Navbar />
-              <LandingBackground />
-              <main className="flex-1">{children}</main>
-              <Footer />
+              <div className="flex h-screen w-screen overflow-hidden bg-[#0a0b0e]">
+                {/* 1. Sleek Pinned Left Sidebar */}
+                <Sidebar />
+
+                {/* 2. Scrollable Dashboard Main Content (NO TOP NAVBAR) */}
+                <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto overflow-x-hidden">
+                  <LandingBackground />
+                  <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 pb-36 max-w-[1600px] w-full mx-auto">
+                    {children}
+                  </main>
+                  <Footer />
+                </div>
+              </div>
+
+              {/* 3. Persistent Mobile & Audio Overlays */}
               <MobileNav />
               <GlobalPlayer />
               <PWAInstallPrompt />
