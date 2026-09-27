@@ -25,7 +25,7 @@ yarn-error.log*
 # Media & assets
 public/uploads/*
 !public/uploads/.gitkeep
-apps/web/public/media/*.mp3
-apps/web/public/media/media/
-!apps/web/public/media/.gitkeep
+frontend/public/media/*.mp3
+frontend/public/media/media/
+!frontend/public/media/.gitkeep
 
