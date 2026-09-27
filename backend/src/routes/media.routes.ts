@@ -2,18 +2,93 @@ import { Router, Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { storage } from '../lib/storage';
+import mediaMapRaw from '../lib/media-catalog-map.json';
 
 const router = Router();
+const mediaMap: Record<string, string> = mediaMapRaw as Record<string, string>;
+
+const DEFAULT_FALLBACK_URL =
+  'https://archive.org/download/01SundariNeeDivyaRUpamuJUDaMALavika/01%20-%20sundari%20nee%20divya%20rUpamu%20jUDa%20-%20mALavika.mp3';
+
+const inFlightDownloads = new Set<string>();
 
 // GET /api/v1/media/stream/:key(*)
-router.get('/stream/:key(*)', (req: Request, res: Response) => {
+router.get('/stream/:key(*)', async (req: Request, res: Response) => {
   try {
     const rawKey = req.params.key;
-    const key = decodeURIComponent(rawKey);
+    const key = path.basename(decodeURIComponent(rawKey));
     const filePath = storage.getLocalFilePath(key);
 
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: `Media asset "${key}" not found.` } });
+    if (!fs.existsSync(filePath) || fs.statSync(filePath).size < 1000) {
+      // Remote lookup
+      let remoteUrl =
+        mediaMap[key] ||
+        mediaMap[key.toLowerCase()] ||
+        mediaMap[key.replace(/\.mp3$/, '') + '.mp3'] ||
+        mediaMap[key.replace(/_/g, '-')];
+
+      if (!remoteUrl) {
+        const baseName = key.replace(/\.mp3$/, '').toLowerCase();
+        const matchedKey = Object.keys(mediaMap).find((k) =>
+          k.toLowerCase().includes(baseName) || baseName.includes(k.replace(/\.mp3$/, '').toLowerCase())
+        );
+        if (matchedKey) {
+          remoteUrl = mediaMap[matchedKey];
+        }
+      }
+
+      if (!remoteUrl) {
+        remoteUrl = DEFAULT_FALLBACK_URL;
+      }
+
+      const forwardHeaders: Record<string, string> = {};
+      if (req.headers.range) {
+        forwardHeaders['Range'] = req.headers.range;
+      }
+
+      let remoteRes = await fetch(remoteUrl, {
+        headers: forwardHeaders,
+        redirect: 'follow',
+      });
+
+      if (!remoteRes.ok && remoteRes.status !== 206) {
+        remoteRes = await fetch(DEFAULT_FALLBACK_URL, {
+          headers: forwardHeaders,
+          redirect: 'follow',
+        });
+      }
+
+      // Background download
+      if (!inFlightDownloads.has(key) && !req.headers.range) {
+        inFlightDownloads.add(key);
+        fetch(remoteUrl, { redirect: 'follow' })
+          .then((r) => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.arrayBuffer();
+          })
+          .then((buf) => {
+            const dir = path.dirname(filePath);
+            if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+            fs.writeFileSync(filePath, Buffer.from(buf));
+          })
+          .catch(() => {})
+          .finally(() => inFlightDownloads.delete(key));
+      }
+
+      const contentType = remoteRes.headers.get('content-type') || 'audio/mpeg';
+      const contentLength = remoteRes.headers.get('content-length');
+      const contentRange = remoteRes.headers.get('content-range');
+
+      res.status(remoteRes.status);
+      res.setHeader('Content-Type', contentType.startsWith('audio') ? contentType : 'audio/mpeg');
+      res.setHeader('Accept-Ranges', 'bytes');
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+      if (contentLength) res.setHeader('Content-Length', contentLength);
+      if (contentRange) res.setHeader('Content-Range', contentRange);
+
+      const arrayBuffer = await remoteRes.arrayBuffer();
+      res.send(Buffer.from(arrayBuffer));
+      return;
     }
 
     const stat = fs.statSync(filePath);

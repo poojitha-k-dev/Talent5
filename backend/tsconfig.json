@@ -9,11 +9,12 @@
     "forceConsistentCasingInFileNames": true,
     "moduleResolution": "node",
     "outDir": "./dist",
-    "rootDir": "./src",
     "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@talent5/types": ["../packages/types/src/index.ts"],
+      "@talent5/utils": ["../packages/utils/src/index.ts"]
     }
   },
   "include": ["src/**/*"]
