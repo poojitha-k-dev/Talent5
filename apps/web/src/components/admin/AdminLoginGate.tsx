@@ -17,7 +17,6 @@ import {
   Activity,
   Cpu,
   CheckCircle2,
-  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -84,17 +83,6 @@ function AdminLoginGateInternal() {
     }
   };
 
-  const handleQuickFill = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    setError(null);
-  };
-
-  const handleQuickLogin = (demoEmail: string, demoPass: string) => {
-    setEmail(demoEmail);
-    setPassword(demoPass);
-    handleAuthenticate(demoEmail, demoPass);
-  };
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-[#06070B] text-slate-100 font-sans selection:bg-rose-500 selection:text-white">
@@ -222,17 +210,10 @@ function AdminLoginGateInternal() {
 
             {/* Password Field */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
+              <div className="mb-1.5">
                 <label className="block text-[11px] font-mono uppercase tracking-wider text-gray-400 font-semibold">
                   Cryptographic Passphrase
                 </label>
-                <button
-                  type="button"
-                  onClick={() => handleQuickFill('admin@talent5.com', 'Talent5Admin2026!')}
-                  className="text-[11px] font-mono text-amber-400/90 hover:text-amber-300 hover:underline transition-colors"
-                >
-                  Fill Default Admin Key
-                </button>
               </div>
               <div className="relative">
                 <Lock className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -274,50 +255,6 @@ function AdminLoginGateInternal() {
             </button>
           </form>
 
-          {/* Quick Demo Credentials Box */}
-          <div className="mt-8 pt-6 border-t border-white/10 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-gray-400 font-bold flex items-center gap-1.5">
-                <Sparkles className="w-3 h-3 text-amber-400" />
-                Rapid Development Credentials
-              </span>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                Seeded
-              </span>
-            </div>
-
-            <div className="p-3.5 rounded-2xl bg-black/50 border border-white/5 space-y-2">
-              <div className="flex items-center justify-between text-xs">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-white">Super Administrator</span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                      ROOT
-                    </span>
-                  </div>
-                  <p className="font-mono text-[11px] text-gray-400 mt-0.5">admin@talent5.com</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => handleQuickFill('admin@talent5.com', 'Talent5Admin2026!')}
-                    className="px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-gray-300 text-[11px] font-medium transition-colors border border-white/10"
-                  >
-                    Prefill
-                  </button>
-                  <button
-                    type="button"
-                    disabled={loading}
-                    onClick={() => handleQuickLogin('admin@talent5.com', 'Talent5Admin2026!')}
-                    className="px-3 py-1 rounded-lg bg-rose-600/30 hover:bg-rose-600/50 text-rose-200 text-[11px] font-bold transition-all border border-rose-500/30 flex items-center gap-1"
-                  >
-                    <LogIn className="w-3 h-3" />
-                    1-Click In
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Navigation Links */}
           <div className="mt-6 pt-5 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
