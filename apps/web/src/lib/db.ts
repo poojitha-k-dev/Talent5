@@ -8,11 +8,14 @@ declare global {
   var pgPool: Pool | undefined;
 }
 
+const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+
 export const pool: Pool = global.pgPool || new Pool({
   connectionString,
+  ssl: isLocal ? undefined : { rejectUnauthorized: false },
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 5000,
+  connectionTimeoutMillis: 10000,
 });
 
 if (process.env.NODE_ENV !== 'production') {

@@ -15,10 +15,12 @@
     "start:web": "npm --workspace=apps/web run start",
     "test": "node scripts/run-tests.js",
     "db:init": "node infrastructure/database/init-db.js",
-    "db:seed": "node infrastructure/database/seed-db.js"
+    "db:seed": "node infrastructure/database/seed-db.js",
+    "postinstall": "prisma skills sync || exit 0"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
+    "prisma": "^8.0.0-rc.17",
     "typescript": "^5.6.3"
   }
 }
