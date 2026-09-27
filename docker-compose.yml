@@ -44,7 +44,7 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - uploads_data:/app/apps/web/public/uploads
+      - uploads_data:/app/frontend/public/uploads
 
   # 3. Nginx Edge Reverse Proxy & Cache
   nginx:
