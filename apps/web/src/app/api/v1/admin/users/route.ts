@@ -63,9 +63,12 @@ export async function GET(req: NextRequest) {
     let roleFilterClause = '';
     if (role === 'CREATOR') {
       roleFilterClause = `HAVING 'CREATOR' = ANY(COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}'))`;
-    } else if (role === 'ADMIN') {
+    } else if (role === 'ADMIN' || role === 'ADMINS' || role === 'STAFF') {
       roleFilterClause = `HAVING ('ADMIN' = ANY(COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}')) OR 'SUPER_ADMIN' = ANY(COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}')) OR 'MODERATOR' = ANY(COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}')) OR 'FINANCE' = ANY(COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}')))`;
-    } else if (role === 'USER' || role === 'LISTENER') {
+    } else if (role === 'USER' || role === 'USERS' || role === 'NORMAL' || role === 'WEBSITE_USERS') {
+      // Normal website users: all registered accounts that do NOT hold administrative clearance
+      roleFilterClause = `HAVING NOT ('ADMIN' = ANY(COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}')) OR 'SUPER_ADMIN' = ANY(COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}')) OR 'MODERATOR' = ANY(COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}')) OR 'FINANCE' = ANY(COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}')))`;
+    } else if (role === 'LISTENER') {
       roleFilterClause = `HAVING NOT ('CREATOR' = ANY(COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}')) OR 'ADMIN' = ANY(COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}')) OR 'SUPER_ADMIN' = ANY(COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}')) OR 'MODERATOR' = ANY(COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}')) OR 'FINANCE' = ANY(COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}')))`;
     }
 

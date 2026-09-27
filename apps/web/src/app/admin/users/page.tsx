@@ -79,7 +79,7 @@ export default function AdminUsersPage() {
 
   // Filters & Search
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'ALL' | 'LISTENER' | 'CREATOR' | 'ADMIN'>('ALL');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'USERS' | 'LISTENER' | 'CREATOR' | 'ADMIN'>('ALL');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'SUSPENDED'>('ALL');
   const [verifiedFilter, setVerifiedFilter] = useState<'ALL' | 'VERIFIED' | 'UNVERIFIED'>('ALL');
 
@@ -663,31 +663,114 @@ export default function AdminUsersPage() {
             )}
           </div>
 
-          {/* Quick Filters */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Role Filter */}
-            <div className="flex items-center gap-1 p-1 rounded-xl bg-midnight-950/80 border border-white/5 text-xs">
-              {(
-                [
-                  { id: 'ALL', label: 'All Roles' },
-                  { id: 'LISTENER', label: 'Listeners' },
-                  { id: 'CREATOR', label: 'Creators' },
-                  { id: 'ADMIN', label: 'Admins' },
-                ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setRoleFilter(tab.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                    roleFilter === tab.id
-                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'
+          {/* Separate Mode Switcher Buttons: Users vs Admin */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Primary Segmented Toggle */}
+            <div className="inline-flex items-center p-1 rounded-2xl bg-midnight-950 border border-white/10 shadow-lg">
+              {/* Normal Website Users Button */}
+              <button
+                type="button"
+                id="filter-users-btn"
+                onClick={() => setRoleFilter('USERS')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  roleFilter === 'USERS' || roleFilter === 'LISTENER' || roleFilter === 'CREATOR'
+                    ? 'bg-blue-600 text-white shadow-[0_0_20px_rgba(37,99,235,0.45)] border border-blue-400'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'
+                }`}
+              >
+                <Users className="w-3.5 h-3.5 text-blue-200" />
+                <span>Users</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                    roleFilter === 'USERS' || roleFilter === 'LISTENER' || roleFilter === 'CREATOR'
+                      ? 'bg-blue-800 text-white'
+                      : 'bg-white/10 text-gray-400'
                   }`}
                 >
-                  {tab.label}
-                </button>
-              ))}
+                  {summary ? Math.max(0, summary.totalUsers - summary.totalAdmins) : '...'}
+                </span>
+              </button>
+
+              {/* Administrator Users Button */}
+              <button
+                type="button"
+                id="filter-admin-btn"
+                onClick={() => setRoleFilter('ADMIN')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  roleFilter === 'ADMIN'
+                    ? 'bg-rose-600 text-white shadow-[0_0_20px_rgba(244,63,94,0.45)] border border-rose-400'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'
+                }`}
+              >
+                <Shield className="w-3.5 h-3.5 text-rose-200" />
+                <span>Admin</span>
+                <span
+                  className={`px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold ${
+                    roleFilter === 'ADMIN'
+                      ? 'bg-rose-800 text-white'
+                      : 'bg-white/10 text-gray-400'
+                  }`}
+                >
+                  {summary ? summary.totalAdmins : '...'}
+                </span>
+              </button>
+
+              {/* All Accounts Button */}
+              <button
+                type="button"
+                id="filter-all-btn"
+                onClick={() => setRoleFilter('ALL')}
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                  roleFilter === 'ALL'
+                    ? 'bg-white/15 text-white border border-white/20'
+                    : 'text-gray-400 hover:text-white hover:bg-white/5 border border-transparent'
+                }`}
+              >
+                <span>All</span>
+                <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-white/10 text-gray-400">
+                  {summary ? summary.totalUsers : '...'}
+                </span>
+              </button>
             </div>
+
+            {/* If in Users view: optional sub-filter for Listeners vs Creators */}
+            {(roleFilter === 'USERS' || roleFilter === 'LISTENER' || roleFilter === 'CREATOR') && (
+              <div className="hidden sm:inline-flex items-center gap-1 p-1 rounded-xl bg-midnight-950/80 border border-white/5 text-[11px] animate-fade-in">
+                <button
+                  type="button"
+                  onClick={() => setRoleFilter('USERS')}
+                  className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                    roleFilter === 'USERS'
+                      ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  All Users
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoleFilter('LISTENER')}
+                  className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                    roleFilter === 'LISTENER'
+                      ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Listeners
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRoleFilter('CREATOR')}
+                  className={`px-2.5 py-1 rounded-lg font-medium transition-colors ${
+                    roleFilter === 'CREATOR'
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Creators
+                </button>
+              </div>
+            )}
 
             {/* Verification Filter */}
             <select
@@ -951,7 +1034,13 @@ export default function AdminUsersPage() {
               ) : (
                 <tr>
                   <td colSpan={7} className="py-12 text-center text-gray-400">
-                    <p className="text-base font-semibold text-white">No registered users found</p>
+                    <p className="text-base font-semibold text-white">
+                      {roleFilter === 'ADMIN'
+                        ? 'No administrator accounts found'
+                        : roleFilter === 'USERS'
+                        ? 'No website users found'
+                        : 'No registered accounts found'}
+                    </p>
                     <p className="text-xs text-gray-500 mt-1">Try altering your search query or role/status filters.</p>
                   </td>
                 </tr>
@@ -963,8 +1052,7 @@ export default function AdminUsersPage() {
         {/* Table Footer */}
         <div className="p-4 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
           <p className="text-[11px]">
-            Showing <strong className="text-white">{filteredUsers.length}</strong> of{' '}
-            <strong className="text-white">{summary?.totalUsers ?? users.length}</strong> registered platform accounts
+            Showing <strong className="text-white">{filteredUsers.length}</strong> {roleFilter === 'ADMIN' ? 'administrative staff accounts' : roleFilter === 'USERS' ? 'normal website users' : 'registered platform accounts'}
           </p>
           <div className="flex items-center gap-2">
             <Link
