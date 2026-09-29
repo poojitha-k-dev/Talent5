@@ -685,6 +685,13 @@ router.get('/applications', async (req: Request, res: Response) => {
         ca.ai_moderation_report as "aiModerationReport",
         ca.ai_safety_score as "aiSafetyScore",
         ca.ai_recommendation as "aiRecommendation",
+        ca.creation_intent as "creationIntent",
+        ca.performed_song_reference as "performedSongReference",
+        ca.plagiarism_risk_level as "plagiarismRiskLevel",
+        ca.matched_song_title as "matchedSongTitle",
+        ca.matched_song_artist as "matchedSongArtist",
+        ca.similarity_percentage as "similarityPercentage",
+        ca.plagiarism_details as "plagiarismDetails",
         u.email as "userEmail",
         u.phone as "userPhone"
       FROM creator_applications ca
@@ -700,9 +707,14 @@ router.get('/applications', async (req: Request, res: Response) => {
       params.push(category);
       sql += ` AND ca.category = $${params.length}`;
     }
+    const intent = typeof req.query.intent === 'string' ? req.query.intent.toUpperCase() : 'ALL';
+    if (intent && intent !== 'ALL') {
+      params.push(intent);
+      sql += ` AND ca.creation_intent = $${params.length}`;
+    }
     if (search && String(search).trim()) {
       params.push(`%${String(search).trim()}%`);
-      sql += ` AND (ca.stage_name ILIKE $${params.length} OR ca.full_name ILIKE $${params.length} OR ca.city ILIKE $${params.length})`;
+      sql += ` AND (ca.stage_name ILIKE $${params.length} OR ca.full_name ILIKE $${params.length} OR ca.city ILIKE $${params.length} OR ca.matched_song_title ILIKE $${params.length})`;
     }
     sql += ` ORDER BY ca.created_at DESC LIMIT 100`;
 
@@ -738,22 +750,42 @@ router.post('/applications/:id/scan', async (req: Request, res: Response) => {
       originalCompositionInfo: app.original_composition_info,
       ownershipDeclaration: app.ownership_declaration,
       copyrightDeclaration: app.copyright_declaration,
+      creationIntent: app.creation_intent,
+      performedSongReference: app.performed_song_reference,
     });
 
     await query(
       `UPDATE creator_applications 
-       SET ai_moderation_report = $1, ai_safety_score = $2, ai_recommendation = $3 
-       WHERE id = $4`,
-      [JSON.stringify(report), report.safetyScore, report.recommendation, id]
+       SET ai_moderation_report = $1,
+           ai_safety_score = $2,
+           ai_recommendation = $3,
+           plagiarism_risk_level = $4,
+           matched_song_title = $5,
+           matched_song_artist = $6,
+           similarity_percentage = $7,
+           plagiarism_details = $8
+       WHERE id = $9`,
+      [
+        JSON.stringify(report),
+        report.safetyScore,
+        report.recommendation,
+        report.plagiarismReport.plagiarismRiskLevel,
+        report.plagiarismReport.matchedSongTitle,
+        report.plagiarismReport.matchedSongArtist,
+        report.plagiarismReport.similarityPercentage,
+        JSON.stringify(report.plagiarismReport),
+        id,
+      ]
     );
 
     return res.status(200).json({
       success: true,
-      message: 'AI Audition Inspection completed',
+      message: 'AI Audition & Plagiarism Inspection completed',
       data: {
         aiModerationReport: report,
         aiSafetyScore: report.safetyScore,
         aiRecommendation: report.recommendation,
+        plagiarismReport: report.plagiarismReport,
       },
     });
   } catch (err: any) {

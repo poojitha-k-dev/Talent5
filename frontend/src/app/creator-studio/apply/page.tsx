@@ -16,6 +16,12 @@ import {
   ArrowRight,
   ArrowLeft,
   AlertCircle,
+  Radio,
+  FileMusic,
+  Award,
+  Layers,
+  Check,
+  HelpCircle,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
@@ -31,6 +37,8 @@ export default function CreatorApplyPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Form Fields
+  const [creationIntent, setCreationIntent] = useState<'ORIGINAL_CREATION' | 'VOCAL_SHOWCASE'>('ORIGINAL_CREATION');
+  const [performedSongReference, setPerformedSongReference] = useState<string>('');
   const [fullName, setFullName] = useState<string>('');
   const [stageName, setStageName] = useState<string>('');
   const [bio, setBio] = useState<string>('');
@@ -102,7 +110,12 @@ export default function CreatorApplyPage() {
           experience,
           portfolioUrl,
           samplePerformanceUrl,
-          originalCompositionInfo,
+          originalCompositionInfo:
+            creationIntent === 'VOCAL_SHOWCASE'
+              ? `Vocal Showcase Rendition: ${performedSongReference || 'Cover performance'} - ${originalCompositionInfo || 'Live singing evaluation'}`
+              : originalCompositionInfo || '100% Original Music Composition',
+          creationIntent,
+          performedSongReference: creationIntent === 'VOCAL_SHOWCASE' ? performedSongReference : null,
           ownershipDeclaration,
           copyrightDeclaration,
         }),
@@ -118,7 +131,7 @@ export default function CreatorApplyPage() {
         isCreator: false,
         application: json.data,
       });
-      setStep(5); // Completion step
+      setStep(6); // Completion step
     } catch (err: any) {
       setError(err.message || 'Something went wrong');
     } finally {
@@ -163,23 +176,35 @@ export default function CreatorApplyPage() {
   }
 
   // If already submitted and pending
-  if (existingStatus?.application && existingStatus.application.status === 'PENDING' && step !== 5) {
+  if (existingStatus?.application && existingStatus.application.status === 'PENDING' && step !== 6) {
+    const isVocal = existingStatus.application.creationIntent === 'VOCAL_SHOWCASE';
     return (
       <div className="max-w-2xl mx-auto px-4 py-20 text-center space-y-6 glass-panel rounded-3xl p-8 border border-white/10">
         <div className="w-16 h-16 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center mx-auto border border-amber-500/30">
           <Clock className="w-8 h-8" />
         </div>
-        <div className="space-y-2">
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase">
-            Audition Status: Under Review
-          </span>
+        <div className="space-y-3">
+          <div className="flex items-center justify-center gap-2">
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase">
+              Audition Status: Under Review
+            </span>
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-bold border uppercase ${
+                isVocal
+                  ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                  : 'bg-teal-500/20 text-teal-300 border-teal-500/30'
+              }`}
+            >
+              {isVocal ? '🎤 Vocal Showcase Path' : '🌟 100% Original Music'}
+            </span>
+          </div>
           <h2 className="text-2xl font-bold font-display text-white">
             Your Creator Audition is Being Evaluated
           </h2>
-          <p className="text-sm text-gray-400 max-w-md mx-auto">
+          <p className="text-sm text-gray-400 max-w-md mx-auto leading-relaxed">
             Submitted for stage name <span className="text-white font-semibold">{existingStatus.application.stageName}</span> on{' '}
             {new Date(existingStatus.application.createdAt).toLocaleDateString()}.
-            Our content team evaluates audition links for audio quality and original composition rights within 24-48 hours.
+            Our automated AI Plagiarism Sentinel and A&R content team are inspecting your audition tape for acoustic fidelity, pitch stability, and copyright compliance.
           </p>
         </div>
       </div>
@@ -192,27 +217,28 @@ export default function CreatorApplyPage() {
       <div className="text-center space-y-2">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/20 text-teal-300 text-xs font-bold border border-teal-500/30">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Talent5 Creator Application</span>
+          <span>Talent5 Creator Audition Gateway</span>
         </div>
         <h1 className="text-3xl sm:text-4xl font-extrabold font-display text-white">
           Apply to Become an Approved Desi Creator
         </h1>
         <p className="text-xs sm:text-sm text-gray-400 max-w-xl mx-auto">
-          Publish your original tracks, protect your master rights, compete in tournaments, and earn verified engagement rewards.
+          Choose whether you are releasing 100% original music or showcasing your vocal talent. Our AI Sentinel model evaluates your audition accordingly.
         </p>
       </div>
 
       {/* Stepper Indicator */}
-      <div className="flex items-center justify-center gap-3">
+      <div className="flex items-center justify-center gap-2 sm:gap-3">
         {[
-          { num: 1, label: 'Identity' },
-          { num: 2, label: 'Artistry' },
-          { num: 3, label: 'Audition' },
-          { num: 4, label: 'Rights' },
+          { num: 1, label: 'Track Intent' },
+          { num: 2, label: 'Identity' },
+          { num: 3, label: 'Artistry' },
+          { num: 4, label: 'Audition' },
+          { num: 5, label: 'Rights' },
         ].map((s) => (
-          <div key={s.num} className="flex items-center gap-2">
+          <div key={s.num} className="flex items-center gap-1.5 sm:gap-2">
             <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+              className={`w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
                 step === s.num
                   ? 'bg-teal-500 text-midnight-950 shadow-peacockGlow'
                   : step > s.num
@@ -222,10 +248,10 @@ export default function CreatorApplyPage() {
             >
               {step > s.num ? <CheckCircle2 className="w-4 h-4" /> : s.num}
             </div>
-            <span className={`text-xs font-medium hidden sm:inline ${step === s.num ? 'text-white' : 'text-gray-500'}`}>
+            <span className={`text-[11px] sm:text-xs font-medium hidden md:inline ${step === s.num ? 'text-white font-bold' : 'text-gray-500'}`}>
               {s.label}
             </span>
-            {s.num < 4 && <div className="w-6 sm:w-10 h-0.5 bg-white/10" />}
+            {s.num < 5 && <div className="w-3 sm:w-6 h-0.5 bg-white/10" />}
           </div>
         ))}
       </div>
@@ -240,11 +266,207 @@ export default function CreatorApplyPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* STEP 1: IDENTITY */}
+          {/* ========================================================= */}
+          {/* STEP 1: CHOOSE YOUR CREATOR TRACK / PATH (INTENT) */}
+          {/* ========================================================= */}
           {step === 1 && (
+            <div className="space-y-6">
+              <div className="border-b border-white/10 pb-3">
+                <h3 className="text-xl font-bold font-display text-white">
+                  1. Select Your Creator Path
+                </h3>
+                <p className="text-xs text-gray-400 mt-1">
+                  Please choose how you want to audition. Talent5 uses an AI Plagiarism & Vocal Sentinel model to audit applications — selecting the right path ensures your audio is evaluated accurately.
+                </p>
+              </div>
+
+              {/* 2 DISTINCT COLUMNS FOR APPLICANTS */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                {/* COLUMN 1: 100% ORIGINAL MUSIC (EVERYTHING NEW) */}
+                <div
+                  onClick={() => setCreationIntent('ORIGINAL_CREATION')}
+                  className={`cursor-pointer rounded-3xl p-6 border transition-all relative overflow-hidden flex flex-col justify-between ${
+                    creationIntent === 'ORIGINAL_CREATION'
+                      ? 'bg-gradient-to-b from-teal-500/15 via-midnight-900 to-midnight-950 border-teal-400 shadow-xl shadow-teal-500/10 ring-2 ring-teal-500/30'
+                      : 'bg-midnight-900/60 border-white/10 hover:border-white/20 hover:bg-midnight-900/90'
+                  }`}
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-10 h-10 rounded-2xl bg-teal-500/20 text-teal-300 flex items-center justify-center border border-teal-500/30">
+                          <Sparkles className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-teal-500/20 text-teal-300 border border-teal-500/30">
+                            Path A • Everything New
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all ${
+                          creationIntent === 'ORIGINAL_CREATION'
+                            ? 'border-teal-400 bg-teal-400 text-midnight-950'
+                            : 'border-white/20 bg-black/40'
+                        }`}
+                      >
+                        {creationIntent === 'ORIGINAL_CREATION' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-lg font-bold text-white tracking-tight">
+                        100% Original Music Creator
+                      </h4>
+                      <p className="text-xs text-teal-300 font-medium mt-0.5">
+                        Composers • Songwriters • Music Producers
+                      </p>
+                    </div>
+
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      You create everything from scratch. You write original lyrics, compose original melodies, or produce new beats and full musical compositions.
+                    </p>
+
+                    <div className="p-3.5 rounded-2xl bg-black/40 border border-white/5 space-y-2 text-[11px]">
+                      <div className="font-bold text-white flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-teal-400" />
+                        <span>AI Plagiarism Checker Policy:</span>
+                      </div>
+                      <ul className="space-y-1 text-gray-300 list-disc list-inside text-[11px] leading-relaxed">
+                        <li>AI scans against 100+ commercial catalog tracks.</li>
+                        <li>Requires 0% copyright matches & unique melodic progression.</li>
+                        <li>Eligible for Master Rights streaming royalties and awards.</li>
+                        <li className="text-amber-300">
+                          ⚠️ Copying melodies from released songs will trigger a plagiarism warning.
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 mt-2 border-t border-white/5 flex items-center justify-between text-xs">
+                    <span className="text-gray-400">Master Rights:</span>
+                    <span className="text-teal-300 font-bold">100% Exclusive Ownership</span>
+                  </div>
+                </div>
+
+                {/* COLUMN 2: VOCAL & SINGING SHOWCASE */}
+                <div
+                  onClick={() => setCreationIntent('VOCAL_SHOWCASE')}
+                  className={`cursor-pointer rounded-3xl p-6 border transition-all relative overflow-hidden flex flex-col justify-between ${
+                    creationIntent === 'VOCAL_SHOWCASE'
+                      ? 'bg-gradient-to-b from-purple-500/15 via-midnight-900 to-midnight-950 border-purple-400 shadow-xl shadow-purple-500/10 ring-2 ring-purple-500/30'
+                      : 'bg-midnight-900/60 border-white/10 hover:border-white/20 hover:bg-midnight-900/90'
+                  }`}
+                >
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-10 h-10 rounded-2xl bg-purple-500/20 text-purple-300 flex items-center justify-center border border-purple-500/30">
+                          <Mic2 className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                            Path B • Voice & Vocals
+                          </span>
+                        </div>
+                      </div>
+                      <div
+                        className={`w-5 h-5 rounded-full flex items-center justify-center border transition-all ${
+                          creationIntent === 'VOCAL_SHOWCASE'
+                            ? 'border-purple-400 bg-purple-400 text-midnight-950'
+                            : 'border-white/20 bg-black/40'
+                        }`}
+                      >
+                        {creationIntent === 'VOCAL_SHOWCASE' && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-lg font-bold text-white tracking-tight">
+                        Vocal & Singing Showcase
+                      </h4>
+                      <p className="text-xs text-purple-300 font-medium mt-0.5">
+                        Vocalists • Singers • Acoustic Performers
+                      </p>
+                    </div>
+
+                    <p className="text-xs text-gray-300 leading-relaxed">
+                      You want to showcase your singing talent, vocal tone, emotional range, and live voice (performing either an original song or a live acoustic cover of a released song).
+                    </p>
+
+                    <div className="p-3.5 rounded-2xl bg-black/40 border border-white/5 space-y-2 text-[11px]">
+                      <div className="font-bold text-white flex items-center gap-1.5">
+                        <FileMusic className="w-3.5 h-3.5 text-purple-400" />
+                        <span>AI Plagiarism Checker Policy:</span>
+                      </div>
+                      <ul className="space-y-1 text-gray-300 list-disc list-inside text-[11px] leading-relaxed">
+                        <li>Covers of released songs are completely allowed!</li>
+                        <li>AI identifies the song and verifies authentic live human singing.</li>
+                        <li>Evaluates pitch stability, breath control & dynamic range.</li>
+                        <li className="text-rose-300">
+                          🚫 No lip-syncing or playing the studio recording as your voice.
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 mt-2 border-t border-white/5 flex items-center justify-between text-xs">
+                    <span className="text-gray-400">Opportunity:</span>
+                    <span className="text-purple-300 font-bold">Playback & Vocal Collabs</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Selection Summary Callout */}
+              <div
+                className={`p-4 rounded-2xl border text-xs flex items-center gap-3 ${
+                  creationIntent === 'ORIGINAL_CREATION'
+                    ? 'bg-teal-500/10 border-teal-500/20 text-teal-200'
+                    : 'bg-purple-500/10 border-purple-500/20 text-purple-200'
+                }`}
+              >
+                <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
+                  {creationIntent === 'ORIGINAL_CREATION' ? (
+                    <Sparkles className="w-4 h-4 text-teal-300" />
+                  ) : (
+                    <Mic2 className="w-4 h-4 text-purple-300" />
+                  )}
+                </div>
+                <div>
+                  <strong className="block text-white font-semibold">
+                    {creationIntent === 'ORIGINAL_CREATION'
+                      ? 'You are applying as: 100% Original Music Creator (Everything New)'
+                      : 'You are applying as: Vocal & Singing Showcase'}
+                  </strong>
+                  <span className="text-[11px] text-gray-300">
+                    {creationIntent === 'ORIGINAL_CREATION'
+                      ? 'The AI model will check that your composition has 0% plagiarism against existing released songs.'
+                      : 'The AI model will allow cover renditions, identify the song, and focus on verifying your live human singing talent.'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-2">
+                <Button
+                  type="button"
+                  variant="peacock"
+                  size="md"
+                  onClick={() => setStep(2)}
+                  className="gap-2 font-bold px-6"
+                >
+                  Continue to Personal Identity <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* STEP 2: IDENTITY */}
+          {/* ========================================================= */}
+          {step === 2 && (
             <div className="space-y-4">
               <h3 className="text-lg font-bold font-display text-white border-b border-white/10 pb-2">
-                1. Personal & Stage Identity
+                2. Personal & Stage Identity
               </h3>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -267,7 +489,7 @@ export default function CreatorApplyPage() {
                     required
                     value={stageName}
                     onChange={(e) => setStageName(e.target.value)}
-                    placeholder="e.g. Kabir Sen Music"
+                    placeholder="e.g. Kabir Sen Music or Pooja Vocals"
                     className="w-full px-4 py-2.5 bg-midnight-900 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-teal-500"
                   />
                 </div>
@@ -280,7 +502,7 @@ export default function CreatorApplyPage() {
                   required
                   value={bio}
                   onChange={(e) => setBio(e.target.value)}
-                  placeholder="Tell us about your musical journey, vocal style, and musical influences..."
+                  placeholder="Tell us about your musical journey, vocal style, instruments, and musical influences..."
                   className="w-full px-4 py-2.5 bg-midnight-900 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-teal-500"
                 />
               </div>
@@ -311,7 +533,10 @@ export default function CreatorApplyPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end pt-4">
+              <div className="flex justify-between pt-4">
+                <Button type="button" variant="ghost" size="md" onClick={() => setStep(1)} className="gap-2">
+                  <ArrowLeft className="w-4 h-4" /> Back to Track Selection
+                </Button>
                 <Button
                   type="button"
                   variant="peacock"
@@ -322,7 +547,7 @@ export default function CreatorApplyPage() {
                       return;
                     }
                     setError(null);
-                    setStep(2);
+                    setStep(3);
                   }}
                   className="gap-2 font-bold"
                 >
@@ -332,11 +557,13 @@ export default function CreatorApplyPage() {
             </div>
           )}
 
-          {/* STEP 2: ARTISTRY & CLASSIFICATION */}
-          {step === 2 && (
+          {/* ========================================================= */}
+          {/* STEP 3: ARTISTRY & CLASSIFICATION */}
+          {/* ========================================================= */}
+          {step === 3 && (
             <div className="space-y-4">
               <h3 className="text-lg font-bold font-display text-white border-b border-white/10 pb-2">
-                2. Musical Classification
+                3. Musical Classification
               </h3>
 
               <div>
@@ -361,7 +588,7 @@ export default function CreatorApplyPage() {
                   type="text"
                   value={selectedLanguages.join(', ')}
                   onChange={(e) => setSelectedLanguages(e.target.value.split(',').map((s) => s.trim()))}
-                  placeholder="e.g. Hindi, Telugu, Urdu"
+                  placeholder="e.g. Hindi, Telugu, Punjabi, Urdu"
                   className="w-full px-4 py-2.5 bg-midnight-900 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-teal-500"
                 />
                 <p className="text-[11px] text-gray-500 mt-1">Separate multiple languages with commas.</p>
@@ -373,7 +600,7 @@ export default function CreatorApplyPage() {
                   type="text"
                   value={selectedGenres.join(', ')}
                   onChange={(e) => setSelectedGenres(e.target.value.split(',').map((s) => s.trim()))}
-                  placeholder="e.g. Sufi & Ghazal, Acoustic & Unplugged"
+                  placeholder="e.g. Sufi & Ghazal, Acoustic & Unplugged, Bollywood"
                   className="w-full px-4 py-2.5 bg-midnight-900 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-teal-500"
                 />
               </div>
@@ -384,70 +611,7 @@ export default function CreatorApplyPage() {
                   rows={2}
                   value={experience}
                   onChange={(e) => setExperience(e.target.value)}
-                  placeholder="e.g. 4 years performing acoustic gigs, released 2 independent singles..."
-                  className="w-full px-4 py-2.5 bg-midnight-900 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-teal-500"
-                />
-              </div>
-
-              <div className="flex justify-between pt-4">
-                <Button type="button" variant="ghost" size="md" onClick={() => setStep(1)} className="gap-2">
-                  <ArrowLeft className="w-4 h-4" /> Back
-                </Button>
-                <Button
-                  type="button"
-                  variant="peacock"
-                  size="md"
-                  onClick={() => setStep(3)}
-                  className="gap-2 font-bold"
-                >
-                  Continue to Audition <ArrowRight className="w-4 h-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* STEP 3: AUDITION & PORTFOLIO */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-bold font-display text-white border-b border-white/10 pb-2">
-                3. Sample Audition & Media
-              </h3>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">
-                  Sample Performance Audio / Video URL <span className="text-rose-400">*</span>
-                </label>
-                <input
-                  type="url"
-                  required
-                  value={samplePerformanceUrl}
-                  onChange={(e) => setSamplePerformanceUrl(e.target.value)}
-                  placeholder="https://cdn.freesound.org/... or YouTube/Drive link"
-                  className="w-full px-4 py-2.5 bg-midnight-900 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-teal-500"
-                />
-                <p className="text-[11px] text-gray-500 mt-1">
-                  Provide a direct link to an original acoustic performance, rap cipher, or vocal track.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">Portfolio / Website Link</label>
-                <input
-                  type="url"
-                  value={portfolioUrl}
-                  onChange={(e) => setPortfolioUrl(e.target.value)}
-                  placeholder="https://yourname.music"
-                  className="w-full px-4 py-2.5 bg-midnight-900 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-teal-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">Original Composition Details</label>
-                <textarea
-                  rows={2}
-                  value={originalCompositionInfo}
-                  onChange={(e) => setOriginalCompositionInfo(e.target.value)}
-                  placeholder="Describe your original songwriting, instruments used, or beat production process..."
+                  placeholder="e.g. 3 years performing acoustic live gigs, sang college competitions, released independent singles..."
                   className="w-full px-4 py-2.5 bg-midnight-900 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-teal-500"
                 />
               </div>
@@ -460,13 +624,113 @@ export default function CreatorApplyPage() {
                   type="button"
                   variant="peacock"
                   size="md"
+                  onClick={() => setStep(4)}
+                  className="gap-2 font-bold"
+                >
+                  Continue to Audition <ArrowRight className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================= */}
+          {/* STEP 4: AUDITION & PORTFOLIO */}
+          {/* ========================================================= */}
+          {step === 4 && (
+            <div className="space-y-4">
+              <div className="border-b border-white/10 pb-2 flex items-center justify-between">
+                <h3 className="text-lg font-bold font-display text-white">
+                  4. Sample Audition & Media Link
+                </h3>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                    creationIntent === 'VOCAL_SHOWCASE'
+                      ? 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                      : 'bg-teal-500/20 text-teal-300 border-teal-500/30'
+                  }`}
+                >
+                  {creationIntent === 'VOCAL_SHOWCASE' ? '🎤 Vocal Showcase Path' : '🌟 100% Original Music'}
+                </span>
+              </div>
+
+              {/* Conditional Song Reference Field for Vocal Showcase */}
+              {creationIntent === 'VOCAL_SHOWCASE' ? (
+                <div className="p-4 rounded-2xl bg-purple-500/10 border border-purple-500/20 space-y-2">
+                  <label className="block text-xs font-bold text-purple-300">
+                    Song You Are Performing (Cover Title & Original Artist)
+                  </label>
+                  <input
+                    type="text"
+                    value={performedSongReference}
+                    onChange={(e) => setPerformedSongReference(e.target.value)}
+                    placeholder="e.g. Kesariya (Arijit Singh / Pritam) or Tum Bin Mann Kaha (Kabir Sen)"
+                    className="w-full px-4 py-2.5 bg-midnight-950 border border-purple-500/30 rounded-xl text-sm text-white focus:outline-none focus:border-purple-400 placeholder-gray-500"
+                  />
+                  <p className="text-[11px] text-purple-200/80">
+                    If this is a cover of a released song, mention the title and artist here. Our AI Plagiarism Sentinel will recognize the composition and evaluate your live singing technique without flagging a false copyright violation.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-teal-500/10 border border-teal-500/20 space-y-2">
+                  <label className="block text-xs font-bold text-teal-300">
+                    Original Composition & Production Details
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={originalCompositionInfo}
+                    onChange={(e) => setOriginalCompositionInfo(e.target.value)}
+                    placeholder="e.g. Original acoustic melody in D Minor composed by me, lyrics written in Hindi/Punjabi, recorded with live acoustic guitar..."
+                    className="w-full px-4 py-2.5 bg-midnight-950 border border-teal-500/30 rounded-xl text-sm text-white focus:outline-none focus:border-teal-400 placeholder-gray-500"
+                  />
+                  <p className="text-[11px] text-teal-200/80">
+                    Confirm your original composition. The AI model will verify 0% plagiarism against our catalog and fingerprint databases.
+                  </p>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1">
+                  Sample Performance Audio / Video URL <span className="text-rose-400">*</span>
+                </label>
+                <input
+                  type="url"
+                  required
+                  value={samplePerformanceUrl}
+                  onChange={(e) => setSamplePerformanceUrl(e.target.value)}
+                  placeholder="https://cdn.freesound.org/... or YouTube/Drive public link"
+                  className="w-full px-4 py-2.5 bg-midnight-900 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-teal-500"
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Provide a direct MP3/WAV audio link or public video link for AI acoustic inspection and human A&R auditioning.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-300 mb-1">Portfolio / Instagram / YouTube Profile</label>
+                <input
+                  type="url"
+                  value={portfolioUrl}
+                  onChange={(e) => setPortfolioUrl(e.target.value)}
+                  placeholder="https://instagram.com/yourname or https://youtube.com/@channel"
+                  className="w-full px-4 py-2.5 bg-midnight-900 border border-white/10 rounded-xl text-sm text-white focus:outline-none focus:border-teal-500"
+                />
+              </div>
+
+              <div className="flex justify-between pt-4">
+                <Button type="button" variant="ghost" size="md" onClick={() => setStep(3)} className="gap-2">
+                  <ArrowLeft className="w-4 h-4" /> Back
+                </Button>
+                <Button
+                  type="button"
+                  variant="peacock"
+                  size="md"
                   onClick={() => {
                     if (!samplePerformanceUrl) {
                       setError('Please provide a sample performance URL for your audition.');
                       return;
                     }
                     setError(null);
-                    setStep(4);
+                    setStep(5);
                   }}
                   className="gap-2 font-bold"
                 >
@@ -476,11 +740,13 @@ export default function CreatorApplyPage() {
             </div>
           )}
 
-          {/* STEP 4: RIGHTS & LEGAL DECLARATIONS */}
-          {step === 4 && (
+          {/* ========================================================= */}
+          {/* STEP 5: RIGHTS & LEGAL DECLARATIONS */}
+          {/* ========================================================= */}
+          {step === 5 && (
             <div className="space-y-6">
               <h3 className="text-lg font-bold font-display text-white border-b border-white/10 pb-2">
-                4. Rights & Copyright Compliance Declarations
+                5. Rights & Copyright Compliance Declarations
               </h3>
 
               <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-300 space-y-2">
@@ -489,7 +755,7 @@ export default function CreatorApplyPage() {
                   <span>Talent5 Rights-First Commitment</span>
                 </div>
                 <p>
-                  Talent5 is a strictly legitimate music platform. We do not accept pirated tracks, copyrighted commercial karaoke backing files, or unlicensed samples. All creator rewards are paid strictly for 100% verified original master and publishing compositions.
+                  Talent5 is a strictly legitimate music platform. We do not accept pirated master files or uncredited commercial tracks. Our automated AI Plagiarism Sentinel protects artists against copyright theft and ensures rewards are distributed honestly.
                 </p>
               </div>
 
@@ -503,7 +769,14 @@ export default function CreatorApplyPage() {
                     className="mt-1 w-4 h-4 rounded text-teal-500 focus:ring-teal-500 accent-teal-500"
                   />
                   <span className="text-xs text-gray-300">
-                    <strong className="text-white">100% Original Master Ownership:</strong> I declare that all musical performances, vocals, lyrics, and compositions submitted are original works owned by me or properly licensed for commercial streaming and monetization.
+                    <strong className="text-white">
+                      {creationIntent === 'ORIGINAL_CREATION'
+                        ? '100% Original Master Ownership Declaration: '
+                        : 'Authentic Vocal Performance Declaration: '}
+                    </strong>
+                    {creationIntent === 'ORIGINAL_CREATION'
+                      ? 'I declare that all lyrics, melodies, vocals, and musical compositions submitted are 100% original works created and owned by me, and do not infringe on any third-party copyright.'
+                      : 'I declare that the singing and vocals submitted in this audition are performed live by me as an authentic human vocalist, and are not a lip-synced or cloned playback of another artist’s master recording.'}
                   </span>
                 </label>
 
@@ -516,13 +789,13 @@ export default function CreatorApplyPage() {
                     className="mt-1 w-4 h-4 rounded text-teal-500 focus:ring-teal-500 accent-teal-500"
                   />
                   <span className="text-xs text-gray-300">
-                    <strong className="text-white">Copyright & Anti-Fraud Compliance:</strong> I understand that artificial engagement, like farms, or uploading uncredited copyrighted material will result in immediate suspension, fraud deductions, and forfeiture of wallet balances.
+                    <strong className="text-white">Copyright & Anti-Fraud Compliance:</strong> I understand that artificial engagement, like bot farms, or uploading uncredited copyrighted audio will result in immediate suspension, fraud deductions, and forfeiture of wallet balances.
                   </span>
                 </label>
               </div>
 
               <div className="flex justify-between pt-6 border-t border-white/10">
-                <Button type="button" variant="ghost" size="md" onClick={() => setStep(3)} className="gap-2">
+                <Button type="button" variant="ghost" size="md" onClick={() => setStep(4)} className="gap-2">
                   <ArrowLeft className="w-4 h-4" /> Back
                 </Button>
                 <Button
@@ -539,18 +812,28 @@ export default function CreatorApplyPage() {
             </div>
           )}
 
-          {/* STEP 5: CONFIRMATION */}
-          {step === 5 && (
+          {/* ========================================================= */}
+          {/* STEP 6: CONFIRMATION */}
+          {/* ========================================================= */}
+          {step === 6 && (
             <div className="text-center py-8 space-y-6">
               <div className="w-16 h-16 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center mx-auto border border-teal-500/30">
                 <CheckCircle2 className="w-8 h-8" />
               </div>
               <div className="space-y-2">
                 <h2 className="text-2xl font-bold font-display text-white">
-                  Application Submitted Successfully!
+                  Audition Submitted Successfully!
                 </h2>
-                <p className="text-xs sm:text-sm text-gray-300 max-w-md mx-auto">
-                  Thank you, <span className="text-teal-400 font-semibold">{stageName}</span>. Your application is now in our moderation queue. You will receive an in-app notice when verified.
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-white/5 border border-white/10 text-teal-300">
+                  <span>Selected Track:</span>
+                  <strong className="text-white">
+                    {creationIntent === 'VOCAL_SHOWCASE'
+                      ? '🎤 Vocal & Singing Showcase'
+                      : '🌟 100% Original Music (Everything New)'}
+                  </strong>
+                </div>
+                <p className="text-xs sm:text-sm text-gray-300 max-w-md mx-auto leading-relaxed pt-2">
+                  Thank you, <span className="text-teal-400 font-semibold">{stageName}</span>. Your audition has been logged and our automated AI Plagiarism Sentinel has initiated acoustic inspection. Talent5 moderators will review your report within 24-48 hours.
                 </p>
               </div>
               <Link href="/home">
