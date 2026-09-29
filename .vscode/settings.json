@@ -1,2 +1,10 @@
 {
+  "files.exclude": {
+    "**/apps": true,
+    "**/.next": true
+  },
+  "search.exclude": {
+    "**/apps": true
+  },
+  "typescript.tsserver.experimental.enableProjectDiagnostics": false
 }
