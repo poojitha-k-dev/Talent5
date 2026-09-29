@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { query, getClient } from '../lib/db';
 import { authenticateAdmin, recordAuditLog } from '../lib/admin';
 import { hashPassword, slugify } from '@talent5/utils';
+import { runAuditionInspection } from '../lib/auditionModel';
 
 const router = Router();
 
@@ -655,10 +656,106 @@ router.get('/audit-logs', async (_req: Request, res: Response) => {
   }
 });
 
-router.get('/applications', async (_req: Request, res: Response) => {
+router.get('/applications', async (req: Request, res: Response) => {
   try {
-    const r = await query(`SELECT * FROM creator_applications ORDER BY created_at DESC LIMIT 100`);
+    const { status, category, search } = req.query;
+    let sql = `
+      SELECT 
+        ca.id,
+        ca.user_id as "userId",
+        ca.full_name as "fullName",
+        ca.stage_name as "stageName",
+        ca.bio,
+        ca.city,
+        ca.state,
+        ca.languages,
+        ca.category,
+        ca.genres,
+        ca.experience,
+        ca.social_links as "socialLinks",
+        ca.portfolio_url as "portfolioUrl",
+        ca.sample_performance_url as "samplePerformanceUrl",
+        ca.original_composition_info as "originalCompositionInfo",
+        ca.ownership_declaration as "ownershipDeclaration",
+        ca.copyright_declaration as "copyrightDeclaration",
+        ca.status,
+        ca.reviewed_by as "reviewedBy",
+        ca.review_notes as "reviewNotes",
+        ca.created_at as "createdAt",
+        ca.ai_moderation_report as "aiModerationReport",
+        ca.ai_safety_score as "aiSafetyScore",
+        ca.ai_recommendation as "aiRecommendation",
+        u.email as "userEmail",
+        u.phone as "userPhone"
+      FROM creator_applications ca
+      LEFT JOIN users u ON ca.user_id = u.id
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+    if (status && status !== 'ALL') {
+      params.push(status);
+      sql += ` AND ca.status = $${params.length}`;
+    }
+    if (category && category !== 'ALL') {
+      params.push(category);
+      sql += ` AND ca.category = $${params.length}`;
+    }
+    if (search && String(search).trim()) {
+      params.push(`%${String(search).trim()}%`);
+      sql += ` AND (ca.stage_name ILIKE $${params.length} OR ca.full_name ILIKE $${params.length} OR ca.city ILIKE $${params.length})`;
+    }
+    sql += ` ORDER BY ca.created_at DESC LIMIT 100`;
+
+    const r = await query(sql, params);
     return res.status(200).json({ success: true, data: r.rows });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+router.post('/applications/:id/scan', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const appRes = await query(`SELECT * FROM creator_applications WHERE id = $1`, [id]);
+    if (appRes.rows.length === 0) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Application not found' } });
+    }
+    const app = appRes.rows[0];
+
+    const report = await runAuditionInspection({
+      id: app.id,
+      fullName: app.full_name,
+      stageName: app.stage_name,
+      bio: app.bio,
+      city: app.city,
+      state: app.state,
+      languages: app.languages,
+      category: app.category,
+      genres: app.genres,
+      experience: app.experience,
+      samplePerformanceUrl: app.sample_performance_url,
+      portfolioUrl: app.portfolio_url,
+      originalCompositionInfo: app.original_composition_info,
+      ownershipDeclaration: app.ownership_declaration,
+      copyrightDeclaration: app.copyright_declaration,
+    });
+
+    await query(
+      `UPDATE creator_applications 
+       SET ai_moderation_report = $1, ai_safety_score = $2, ai_recommendation = $3 
+       WHERE id = $4`,
+      [JSON.stringify(report), report.safetyScore, report.recommendation, id]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'AI Audition Inspection completed',
+      data: {
+        aiModerationReport: report,
+        aiSafetyScore: report.safetyScore,
+        aiRecommendation: report.recommendation,
+      },
+    });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }
@@ -667,9 +764,88 @@ router.get('/applications', async (_req: Request, res: Response) => {
 router.patch('/applications/:id', async (req: Request, res: Response) => {
   const actor = (req as any).user;
   try {
-    const { status, notes } = req.body;
-    await query(`UPDATE creator_applications SET status = $1, reviewed_by = $2, review_notes = $3 WHERE id = $4`, [status, actor.id, notes, req.params.id]);
-    return res.status(200).json({ success: true, message: 'Application updated' });
+    const { id } = req.params;
+    const action = (req.body.action || req.body.status || '').toUpperCase();
+    const notes = req.body.notes || '';
+
+    let newStatus = 'UNDER_REVIEW';
+    if (action === 'APPROVE' || action === 'APPROVED') newStatus = 'APPROVED';
+    else if (action === 'REJECT' || action === 'REJECTED') newStatus = 'REJECTED';
+    else if (action === 'UNDER_REVIEW') newStatus = 'UNDER_REVIEW';
+    else if (action === 'SUSPEND' || action === 'SUSPENDED') newStatus = 'SUSPENDED';
+
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+
+      const appRes = await client.query(`SELECT * FROM creator_applications WHERE id = $1`, [id]);
+      if (appRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Application not found' } });
+      }
+      const app = appRes.rows[0];
+
+      await client.query(
+        `UPDATE creator_applications 
+         SET status = $1, reviewed_by = $2, review_notes = $3 
+         WHERE id = $4`,
+        [newStatus, actor.id, notes, id]
+      );
+
+      // If approved, provision creator profile and assign CREATOR role
+      if (newStatus === 'APPROVED') {
+        const creatorRoleIdRes = await client.query(`SELECT id FROM roles WHERE name = 'CREATOR'`);
+        if (creatorRoleIdRes.rows.length > 0) {
+          await client.query(
+            `INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+            [app.user_id, creatorRoleIdRes.rows[0].id]
+          );
+        }
+
+        // Provision or update creator profile
+        await client.query(
+          `INSERT INTO creator_profiles (user_id, stage_name, bio, city, state, category, is_approved, verified_badge)
+           VALUES ($1, $2, $3, $4, $5, $6, TRUE, TRUE)
+           ON CONFLICT (user_id) DO UPDATE SET 
+             stage_name = EXCLUDED.stage_name,
+             bio = EXCLUDED.bio,
+             city = EXCLUDED.city,
+             state = EXCLUDED.state,
+             category = EXCLUDED.category,
+             is_approved = TRUE,
+             verified_badge = TRUE`,
+          [
+            app.user_id,
+            app.stage_name || app.full_name,
+            app.bio || 'Verified Talent5 Desi Music Creator',
+            app.city || 'Mumbai',
+            app.state || 'Maharashtra',
+            app.category || 'SINGER',
+          ]
+        );
+      }
+
+      await client.query('COMMIT');
+
+      await recordAuditLog({
+        actorId: actor.id,
+        action: `ADMIN_${newStatus}_CREATOR_APPLICATION`,
+        entityName: 'CREATOR_APPLICATION',
+        entityId: id,
+        newState: { status: newStatus, reviewNotes: notes, applicantId: app.user_id },
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Application ${newStatus.toLowerCase()} successfully`,
+        data: { status: newStatus },
+      });
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
   } catch (err: any) {
     return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }
