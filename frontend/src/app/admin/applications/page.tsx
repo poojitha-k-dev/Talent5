@@ -34,6 +34,8 @@ import {
   Radio,
   FileText,
   AlertTriangle,
+  ChevronDown,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -166,12 +168,47 @@ export default function AdminApplicationsPage() {
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
   const [intentFilter, setIntentFilter] = useState<'ALL' | 'ORIGINAL_CREATION' | 'VOCAL_SHOWCASE'>('ALL');
+  const [riskFilter, setRiskFilter] = useState('ALL');
   const [search, setSearch] = useState('');
+  const [counts, setCounts] = useState<{
+    total: number;
+    pending: number;
+    underReview: number;
+    approved: number;
+    rejected: number;
+    originalCreation: number;
+    vocalShowcase: number;
+    highPlagiarism: number;
+  }>({
+    total: 0,
+    pending: 0,
+    underReview: 0,
+    approved: 0,
+    rejected: 0,
+    originalCreation: 0,
+    vocalShowcase: 0,
+    highPlagiarism: 0,
+  });
   const [selectedApp, setSelectedApp] = useState<CreatorApp | null>(null);
   const [reviewNotes, setReviewNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  const handleResetFilters = () => {
+    setStatusFilter('ALL');
+    setCategoryFilter('ALL');
+    setIntentFilter('ALL');
+    setRiskFilter('ALL');
+    setSearch('');
+  };
+
+  const hasActiveFilters =
+    statusFilter !== 'ALL' ||
+    categoryFilter !== 'ALL' ||
+    intentFilter !== 'ALL' ||
+    riskFilter !== 'ALL' ||
+    search.trim() !== '';
 
   // Audio Player State
   const [playingAudioId, setPlayingAudioId] = useState<string | null>(null);
@@ -202,12 +239,16 @@ export default function AdminApplicationsPage() {
       if (statusFilter !== 'ALL') url.searchParams.set('status', statusFilter);
       if (categoryFilter !== 'ALL') url.searchParams.set('category', categoryFilter);
       if (intentFilter !== 'ALL') url.searchParams.set('intent', intentFilter);
+      if (riskFilter !== 'ALL') url.searchParams.set('risk', riskFilter);
       if (search.trim()) url.searchParams.set('search', search.trim());
 
       const res = await fetch(url.toString(), { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setApplications(json.data);
+        if (json.counts) {
+          setCounts(json.counts);
+        }
       }
     } catch (err: any) {
       console.error('Error fetching creator applications:', err);
@@ -219,7 +260,7 @@ export default function AdminApplicationsPage() {
 
   useEffect(() => {
     fetchApplications();
-  }, [statusFilter, categoryFilter, intentFilter, search]);
+  }, [statusFilter, categoryFilter, intentFilter, riskFilter, search]);
 
   // Audio player cleanup
   useEffect(() => {
@@ -439,77 +480,266 @@ export default function AdminApplicationsPage() {
         </div>
       </div>
 
-      {/* Filters Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-midnight-900/60 border border-white/5 backdrop-blur-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Creator Intent / Track Tabs */}
-          <div className="flex items-center gap-1 bg-midnight-950 p-1 rounded-xl border border-white/5 text-xs">
-            {[
-              { id: 'ALL', label: 'All Paths' },
-              { id: 'ORIGINAL_CREATION', label: '🌟 100% Original Music' },
-              { id: 'VOCAL_SHOWCASE', label: '🎤 Vocal Showcase' },
-            ].map((it) => (
+      {/* Filters & Control Station */}
+      <div className="rounded-3xl bg-midnight-900/80 border border-white/10 p-5 shadow-2xl backdrop-blur-md space-y-4">
+        {/* Top Search & Active Summary Bar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="relative flex-1 max-w-xl">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search by artist name, stage name, city, or song reference..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-10 pr-9 py-2 rounded-xl bg-midnight-950/90 border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-rose-500/80 transition-all shadow-inner"
+            />
+            {search && (
               <button
-                key={it.id}
-                onClick={() => setIntentFilter(it.id as any)}
-                className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
-                  intentFilter === it.id
-                    ? it.id === 'VOCAL_SHOWCASE'
-                      ? 'bg-purple-600 text-white shadow-md'
-                      : it.id === 'ORIGINAL_CREATION'
-                      ? 'bg-teal-600 text-white shadow-md'
-                      : 'bg-white/20 text-white shadow-md'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
+                title="Clear search"
               >
-                {it.label}
+                <X className="w-3.5 h-3.5" />
               </button>
-            ))}
+            )}
           </div>
 
-          {/* Status Tabs */}
-          <div className="flex items-center gap-1 bg-midnight-950 p-1 rounded-xl border border-white/5 text-xs">
-            {['ALL', 'PENDING', 'UNDER_REVIEW', 'APPROVED', 'REJECTED'].map((st) => (
+          <div className="flex items-center gap-3 justify-between sm:justify-end">
+            <div className="text-xs text-gray-400 font-medium">
+              Showing <span className="text-white font-bold">{applications.length}</span>
+              {counts.total > 0 && (
+                <> of <span className="text-white font-bold">{counts.total}</span></>
+              )} auditions
+            </div>
+            {hasActiveFilters && (
               <button
-                key={st}
-                onClick={() => setStatusFilter(st)}
-                className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
-                  statusFilter === st
-                    ? 'bg-rose-600 text-white shadow-md'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
+                onClick={handleResetFilters}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/30 text-xs font-medium transition-all"
+                title="Reset all filters to default"
               >
-                {st === 'ALL' ? 'All Status' : st.replace('_', ' ')}
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Reset Filters</span>
               </button>
-            ))}
+            )}
+          </div>
+        </div>
+
+        <div className="h-px bg-white/5" />
+
+        {/* Primary Filter Rows */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Submission Track / Creation Intent */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-300">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>Submission Track</span>
+              </div>
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider font-mono">
+                Original vs Showcase
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 bg-midnight-950 p-1.5 rounded-2xl border border-white/5 text-xs">
+              {[
+                { id: 'ALL', label: 'All Tracks', count: counts.total || applications.length },
+                { id: 'ORIGINAL_CREATION', label: '🌟 100% Original', count: counts.originalCreation },
+                { id: 'VOCAL_SHOWCASE', label: '🎤 Vocal Showcase', count: counts.vocalShowcase },
+              ].map((it) => {
+                const isActive = intentFilter === it.id;
+                return (
+                  <button
+                    key={it.id}
+                    onClick={() => setIntentFilter(it.id as any)}
+                    className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl font-medium transition-all text-center ${
+                      isActive
+                        ? it.id === 'VOCAL_SHOWCASE'
+                          ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20 font-bold'
+                          : it.id === 'ORIGINAL_CREATION'
+                          ? 'bg-teal-600 text-white shadow-lg shadow-teal-600/20 font-bold'
+                          : 'bg-white/20 text-white shadow-md font-bold'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    <span className="truncate">{it.label}</span>
+                    {it.count !== undefined && it.count > 0 && (
+                      <span
+                        className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono shrink-0 ${
+                          isActive
+                            ? 'bg-black/30 text-white'
+                            : 'bg-white/10 text-gray-400'
+                        }`}
+                      >
+                        {it.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Category Dropdown */}
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="bg-midnight-950 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:border-rose-500"
-          >
-            <option value="ALL">All Categories</option>
-            <option value="SINGER">Singers</option>
-            <option value="RAPPER">Rappers</option>
-            <option value="FOLK">Folk</option>
-            <option value="CLASSICAL">Classical</option>
-            <option value="INSTRUMENTAL">Instrumental</option>
-          </select>
+          {/* Workflow Status Filter */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-300">
+                <Clock className="w-3.5 h-3.5 text-blue-400" />
+                <span>Audition Status</span>
+              </div>
+              <span className="text-[10px] text-gray-500 uppercase tracking-wider font-mono">
+                Workflow Stage
+              </span>
+            </div>
+            <div className="grid grid-cols-5 gap-1 bg-midnight-950 p-1.5 rounded-2xl border border-white/5 text-xs">
+              {[
+                { id: 'ALL', label: 'All', count: counts.total || applications.length, dot: '' },
+                { id: 'PENDING', label: 'Pending', count: counts.pending, dot: 'bg-amber-400' },
+                { id: 'UNDER_REVIEW', label: 'Review', count: counts.underReview, dot: 'bg-blue-400' },
+                { id: 'APPROVED', label: 'Approved', count: counts.approved, dot: 'bg-emerald-400' },
+                { id: 'REJECTED', label: 'Rejected', count: counts.rejected, dot: 'bg-rose-400' },
+              ].map((st) => {
+                const isActive = statusFilter === st.id;
+                return (
+                  <button
+                    key={st.id}
+                    onClick={() => setStatusFilter(st.id)}
+                    className={`flex items-center justify-center gap-1 py-2 px-1 rounded-xl font-medium transition-all text-center ${
+                      isActive
+                        ? st.id === 'APPROVED'
+                          ? 'bg-emerald-600 text-white shadow-md font-bold'
+                          : st.id === 'REJECTED'
+                          ? 'bg-rose-600 text-white shadow-md font-bold'
+                          : st.id === 'UNDER_REVIEW'
+                          ? 'bg-blue-600 text-white shadow-md font-bold'
+                          : st.id === 'PENDING'
+                          ? 'bg-amber-600 text-white shadow-md font-bold'
+                          : 'bg-white/20 text-white shadow-md font-bold'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    }`}
+                  >
+                    {st.dot && (
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isActive ? 'bg-white' : st.dot}`} />
+                    )}
+                    <span className="truncate">{st.label}</span>
+                    {st.count !== undefined && st.count > 0 && (
+                      <span
+                        className={`text-[9px] px-1 py-0.2 rounded-full font-mono shrink-0 ${
+                          isActive
+                            ? 'bg-black/30 text-white'
+                            : 'bg-white/10 text-gray-400'
+                        }`}
+                      >
+                        {st.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
-        {/* Search Box */}
-        <div className="relative w-full sm:w-64">
-          <Search className="w-3.5 h-3.5 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            placeholder="Search by artist, city or song..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-midnight-950 border border-white/10 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-rose-500"
-          />
+        {/* Secondary Filters: Category & AI Risk */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          {/* Category Dropdown with explicit label */}
+          <div className="flex items-center gap-2 bg-midnight-950/60 border border-white/5 p-2 rounded-2xl">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-400 pl-2 shrink-0">
+              <Mic2 className="w-3.5 h-3.5 text-rose-400" />
+              <span>Artist Category:</span>
+            </div>
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="bg-midnight-950 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-rose-500 w-full cursor-pointer hover:border-white/20 transition-colors"
+            >
+              <option value="ALL">All Categories (Singers, Rappers, Folk...)</option>
+              <option value="SINGER">🎤 Singer (Vocalists)</option>
+              <option value="RAPPER">🔥 Rapper / Hip-Hop</option>
+              <option value="FOLK">🪕 Folk & Traditional</option>
+              <option value="CLASSICAL">🎻 Classical / Carnatic / Hindustani</option>
+              <option value="INSTRUMENTAL">🎹 Instrumental & Production</option>
+            </select>
+          </div>
+
+          {/* AI Sentinel Risk Dropdown with explicit label */}
+          <div className="flex items-center gap-2 bg-midnight-950/60 border border-white/5 p-2 rounded-2xl">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-gray-400 pl-2 shrink-0">
+              <ShieldAlert className="w-3.5 h-3.5 text-emerald-400" />
+              <span>AI Risk Level:</span>
+            </div>
+            <select
+              value={riskFilter}
+              onChange={(e) => setRiskFilter(e.target.value)}
+              className="bg-midnight-950 border border-white/10 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-rose-500 w-full cursor-pointer hover:border-white/20 transition-colors"
+            >
+              <option value="ALL">All AI Risk Levels</option>
+              <option value="CLEAN">🟢 Clean & Verified Original</option>
+              <option value="COVER_PERMITTED">🔵 Vocal Cover Permitted</option>
+              <option value="MODERATE_SIMILARITY">🟡 Moderate Similarity Warning</option>
+              <option value="HIGH_PLAGIARISM_ALERT">🔴 High Plagiarism Alert</option>
+            </select>
+          </div>
         </div>
+
+        {/* Active Filter Chips Bar */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5 text-xs">
+            <span className="text-gray-500 text-[11px] font-semibold uppercase tracking-wider">
+              Active Filters:
+            </span>
+
+            {intentFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-teal-500/15 border border-teal-500/30 text-teal-300 text-xs">
+                <span>Track: {intentFilter === 'ORIGINAL_CREATION' ? 'Original Music' : 'Vocal Showcase'}</span>
+                <button onClick={() => setIntentFilter('ALL')} className="hover:text-white ml-0.5">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {statusFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs">
+                <span>Status: {statusFilter.replace('_', ' ')}</span>
+                <button onClick={() => setStatusFilter('ALL')} className="hover:text-white ml-0.5">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {categoryFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs">
+                <span>Category: {categoryFilter}</span>
+                <button onClick={() => setCategoryFilter('ALL')} className="hover:text-white ml-0.5">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {riskFilter !== 'ALL' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-300 text-xs">
+                <span>AI Risk: {riskFilter.replace('_', ' ')}</span>
+                <button onClick={() => setRiskFilter('ALL')} className="hover:text-white ml-0.5">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            {search.trim() !== '' && (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-300 text-xs">
+                <span>Search: &ldquo;{search}&rdquo;</span>
+                <button onClick={() => setSearch('')} className="hover:text-white ml-0.5">
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            )}
+
+            <button
+              onClick={handleResetFilters}
+              className="text-xs text-gray-400 hover:text-white underline underline-offset-4 ml-auto"
+            >
+              Clear All
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Applications Grid */}
@@ -519,8 +749,21 @@ export default function AdminApplicationsPage() {
           <span>Scanning and loading creator auditions...</span>
         </div>
       ) : applications.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-midnight-900/40 border border-white/5 text-gray-400 text-xs">
-          No creator applications found matching selected criteria.
+        <div className="p-14 text-center rounded-3xl bg-midnight-900/40 border border-white/5 text-gray-400 text-xs flex flex-col items-center justify-center gap-3">
+          <Filter className="w-8 h-8 text-gray-600 mb-1" />
+          <p className="text-sm font-semibold text-gray-300">No Auditions Found</p>
+          <p className="text-xs text-gray-500 max-w-sm">
+            No creator applications match your current filter and search criteria.
+          </p>
+          {hasActiveFilters && (
+            <button
+              onClick={handleResetFilters}
+              className="mt-2 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white text-xs font-medium transition-all"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>Clear all filters</span>
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

@@ -658,7 +658,7 @@ router.get('/audit-logs', async (_req: Request, res: Response) => {
 
 router.get('/applications', async (req: Request, res: Response) => {
   try {
-    const { status, category, search } = req.query;
+    const { status, category, search, risk } = req.query;
     let sql = `
       SELECT 
         ca.id,
@@ -712,14 +712,46 @@ router.get('/applications', async (req: Request, res: Response) => {
       params.push(intent);
       sql += ` AND ca.creation_intent = $${params.length}`;
     }
+    const riskLevel = typeof risk === 'string' ? risk.toUpperCase() : 'ALL';
+    if (riskLevel && riskLevel !== 'ALL') {
+      params.push(riskLevel);
+      sql += ` AND ca.plagiarism_risk_level = $${params.length}`;
+    }
     if (search && String(search).trim()) {
       params.push(`%${String(search).trim()}%`);
       sql += ` AND (ca.stage_name ILIKE $${params.length} OR ca.full_name ILIKE $${params.length} OR ca.city ILIKE $${params.length} OR ca.matched_song_title ILIKE $${params.length})`;
     }
     sql += ` ORDER BY ca.created_at DESC LIMIT 100`;
 
-    const r = await query(sql, params);
-    return res.status(200).json({ success: true, data: r.rows });
+    const [r, countsRes] = await Promise.all([
+      query(sql, params),
+      query(`
+        SELECT 
+          COUNT(*)::int as total,
+          COUNT(*) FILTER (WHERE status = 'PENDING')::int as pending,
+          COUNT(*) FILTER (WHERE status = 'UNDER_REVIEW')::int as under_review,
+          COUNT(*) FILTER (WHERE status = 'APPROVED')::int as approved,
+          COUNT(*) FILTER (WHERE status = 'REJECTED')::int as rejected,
+          COUNT(*) FILTER (WHERE creation_intent = 'ORIGINAL_CREATION')::int as original_creation,
+          COUNT(*) FILTER (WHERE creation_intent = 'VOCAL_SHOWCASE')::int as vocal_showcase,
+          COUNT(*) FILTER (WHERE plagiarism_risk_level = 'HIGH_PLAGIARISM_ALERT')::int as high_plagiarism
+        FROM creator_applications
+      `).catch(() => ({ rows: [{ total: 0, pending: 0, under_review: 0, approved: 0, rejected: 0, original_creation: 0, vocal_showcase: 0, high_plagiarism: 0 }] })),
+    ]);
+
+    const countsRow = countsRes.rows[0] || {};
+    const counts = {
+      total: Number(countsRow.total || 0),
+      pending: Number(countsRow.pending || 0),
+      underReview: Number(countsRow.under_review || 0),
+      approved: Number(countsRow.approved || 0),
+      rejected: Number(countsRow.rejected || 0),
+      originalCreation: Number(countsRow.original_creation || 0),
+      vocalShowcase: Number(countsRow.vocal_showcase || 0),
+      highPlagiarism: Number(countsRow.high_plagiarism || 0),
+    };
+
+    return res.status(200).json({ success: true, data: r.rows, counts });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }
