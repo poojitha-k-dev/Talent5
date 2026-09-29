@@ -29,6 +29,7 @@ import {
   Phone,
   ShieldAlert,
   ArrowRight,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -128,6 +129,15 @@ export default function AdminUsersPage() {
   const [permanentDelete, setPermanentDelete] = useState(true);
   const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
 
+  // Helper for authenticated requests with Authorization header
+  const getAuthHeaders = () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('talent5_token') : null;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
+
   const fetchUsers = async () => {
     setLoading(true);
     setError(null);
@@ -137,7 +147,9 @@ export default function AdminUsersPage() {
       if (roleFilter !== 'ALL') params.set('role', roleFilter);
       if (statusFilter !== 'ALL') params.set('status', statusFilter);
 
-      const res = await fetch(`/api/v1/admin/users?${params.toString()}`);
+      const res = await fetch(`/api/v1/admin/users?${params.toString()}`, {
+        headers: getAuthHeaders(),
+      });
       const json = await res.json();
       if (json.success) {
         setUsers(json.data.users);
@@ -209,7 +221,7 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch('/api/v1/admin/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           fullName: addFullName,
           email: addEmail,
@@ -257,7 +269,7 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch('/api/v1/admin/users', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           userId: editingUser.id,
           fullName: editFullName,
@@ -284,6 +296,7 @@ export default function AdminUsersPage() {
 
       showToast('success', `Updated account details for ${json.data.fullName || json.data.email}`);
       setEditingUser(null);
+      fetchUsers();
     } catch (err: any) {
       showToast('error', err.message);
     } finally {
@@ -317,7 +330,7 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch('/api/v1/admin/users', {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           userId: passwordUser.id,
           newPassword,
@@ -332,6 +345,7 @@ export default function AdminUsersPage() {
 
       showToast('success', `New password saved for ${passwordUser.fullName || passwordUser.email}`);
       setPasswordUser(null);
+      fetchUsers();
     } catch (err: any) {
       showToast('error', err.message);
     } finally {
@@ -352,7 +366,7 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch('/api/v1/admin/users', {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           userId: deletingUser.id,
           permanent: permanentDelete,
@@ -531,26 +545,26 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
-      {/* Notification Toast */}
+      {/* Floating Notification Toast */}
       {notification && (
         <div
-          className={`p-4 rounded-xl border text-sm flex items-center justify-between gap-3 animate-fade-in ${
+          className={`fixed top-6 right-6 z-[100] max-w-md p-4 rounded-2xl border text-sm flex items-center justify-between gap-3 shadow-2xl backdrop-blur-xl animate-fade-in ${
             notification.type === 'success'
-              ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-              : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+              ? 'bg-emerald-950/90 border-emerald-500/40 text-emerald-200 shadow-emerald-950/50'
+              : 'bg-rose-950/90 border-rose-500/40 text-rose-200 shadow-rose-950/50'
           }`}
         >
           <div className="flex items-center gap-2.5">
             {notification.type === 'success' ? (
-              <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+              <CheckCircle2 className="w-5 h-5 flex-shrink-0 text-emerald-400" />
             ) : (
-              <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 text-rose-400" />
             )}
-            <span>{notification.message}</span>
+            <span className="font-medium">{notification.message}</span>
           </div>
           <button
             onClick={() => setNotification(null)}
-            className="text-xs hover:opacity-80"
+            className="text-xs hover:opacity-80 p-1 rounded-lg hover:bg-white/10 transition-colors"
           >
             <X className="w-4 h-4" />
           </button>
@@ -1069,7 +1083,10 @@ export default function AdminUsersPage() {
       {/* 1. ADD USER / ADMIN MODAL */}
       {/* ========================================================= */}
       {showAddModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in overflow-y-auto">
+        <div 
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAddModal(false); }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in overflow-y-auto"
+        >
           <div className="relative w-full max-w-lg rounded-3xl bg-midnight-950 border border-rose-500/30 p-6 sm:p-8 shadow-2xl space-y-6 my-8">
             <div className="flex items-start justify-between border-b border-white/10 pb-4">
               <div>
@@ -1298,7 +1315,10 @@ export default function AdminUsersPage() {
       {/* 2. EDIT USER MODAL */}
       {/* ========================================================= */}
       {editingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in overflow-y-auto">
+        <div 
+          onClick={(e) => { if (e.target === e.currentTarget) setEditingUser(null); }}
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in overflow-y-auto"
+        >
           <div className="relative w-full max-w-lg rounded-3xl bg-midnight-950 border border-blue-500/30 p-6 sm:p-8 shadow-2xl space-y-6 my-8">
             <div className="flex items-start justify-between border-b border-white/10 pb-4">
               <div>
@@ -1485,7 +1505,10 @@ export default function AdminUsersPage() {
       {/* 3. RESET PASSWORD MODAL */}
       {/* ========================================================= */}
       {passwordUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+        <div 
+          onClick={(e) => { if (e.target === e.currentTarget) setPasswordUser(null); }}
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in overflow-y-auto"
+        >
           <div className="relative w-full max-w-md rounded-3xl bg-midnight-950 border border-amber-500/30 p-6 sm:p-8 shadow-2xl space-y-6">
             <div className="flex items-start justify-between border-b border-white/10 pb-4">
               <div>
@@ -1624,7 +1647,10 @@ export default function AdminUsersPage() {
       {/* 4. DELETE CONFIRMATION MODAL */}
       {/* ========================================================= */}
       {deletingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+        <div 
+          onClick={(e) => { if (e.target === e.currentTarget) setDeletingUser(null); }}
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+        >
           <div className="relative w-full max-w-md rounded-3xl bg-midnight-950 border border-rose-500/50 p-6 sm:p-8 shadow-2xl space-y-6">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 flex-shrink-0">
@@ -1700,7 +1726,10 @@ export default function AdminUsersPage() {
       {/* 5. INSPECT USER DOSSIER MODAL */}
       {/* ========================================================= */}
       {inspectUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
+        <div 
+          onClick={(e) => { if (e.target === e.currentTarget) setInspectUser(null); }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in"
+        >
           <div className="relative w-full max-w-lg rounded-3xl bg-midnight-950 border border-rose-500/30 p-6 sm:p-8 shadow-2xl space-y-6">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
@@ -1719,8 +1748,10 @@ export default function AdminUsersPage() {
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setInspectUser(null)}
-                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white flex items-center justify-center text-xs"
+                className="w-8 h-8 rounded-full bg-white/5 hover:bg-white/15 text-gray-400 hover:text-white flex items-center justify-center text-xs transition-colors cursor-pointer"
+                aria-label="Close Dossier"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1778,9 +1809,11 @@ export default function AdminUsersPage() {
               <button
                 type="button"
                 onClick={() => {
-                  handleOpenEdit(inspectUser);
+                  const target = inspectUser;
+                  setInspectUser(null);
+                  handleOpenEdit(target);
                 }}
-                className="py-2 px-3 rounded-xl text-xs font-semibold bg-blue-500/10 hover:bg-blue-500/20 text-blue-300 border border-blue-500/20 transition-colors flex items-center justify-center gap-1.5"
+                className="py-2.5 px-3 rounded-xl text-xs font-semibold bg-blue-500/15 hover:bg-blue-500/25 active:scale-95 text-blue-300 border border-blue-500/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:shadow-blue-500/10"
               >
                 <Edit className="w-3.5 h-3.5" />
                 <span>Edit</span>
@@ -1789,9 +1822,11 @@ export default function AdminUsersPage() {
               <button
                 type="button"
                 onClick={() => {
-                  handleOpenPassword(inspectUser);
+                  const target = inspectUser;
+                  setInspectUser(null);
+                  handleOpenPassword(target);
                 }}
-                className="py-2 px-3 rounded-xl text-xs font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 transition-colors flex items-center justify-center gap-1.5"
+                className="py-2.5 px-3 rounded-xl text-xs font-semibold bg-amber-500/15 hover:bg-amber-500/25 active:scale-95 text-amber-300 border border-amber-500/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:shadow-amber-500/10"
               >
                 <KeyRound className="w-3.5 h-3.5" />
                 <span>Password</span>
@@ -1799,18 +1834,38 @@ export default function AdminUsersPage() {
 
               <button
                 type="button"
+                disabled={actionLoadingId === inspectUser.id}
                 onClick={() => handleToggleVerification(inspectUser)}
-                className="py-2 px-3 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-white border border-white/10 transition-colors flex items-center justify-center gap-1"
+                className={`py-2.5 px-3 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 disabled:opacity-50 border ${
+                  inspectUser.isVerified
+                    ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border-amber-500/30'
+                    : 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border-emerald-500/30'
+                }`}
               >
-                <span>{inspectUser.isVerified ? 'Unverify' : 'Verify'}</span>
+                {actionLoadingId === inspectUser.id ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : inspectUser.isVerified ? (
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                ) : (
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                )}
+                <span>
+                  {actionLoadingId === inspectUser.id
+                    ? 'Updating...'
+                    : inspectUser.isVerified
+                    ? 'Unverify'
+                    : 'Verify'}
+                </span>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
-                  handleOpenDelete(inspectUser);
+                  const target = inspectUser;
+                  setInspectUser(null);
+                  handleOpenDelete(target);
                 }}
-                className="py-2 px-3 rounded-xl text-xs font-semibold bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 transition-colors flex items-center justify-center gap-1.5"
+                className="py-2.5 px-3 rounded-xl text-xs font-semibold bg-rose-500/15 hover:bg-rose-500/25 active:scale-95 text-rose-300 border border-rose-500/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:shadow-rose-500/10"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Delete</span>
