@@ -640,8 +640,144 @@ router.patch('/payouts/:id', async (req: Request, res: Response) => {
 
 router.get('/fraud', async (_req: Request, res: Response) => {
   try {
-    const r = await query(`SELECT f.*, u.email, u.full_name as "userName" FROM fraud_events f LEFT JOIN users u ON f.user_id = u.id ORDER BY f.created_at DESC LIMIT 100`);
-    return res.status(200).json({ success: true, data: r.rows });
+    const [eventsRes, suspiciousLikesRes, countsRes] = await Promise.all([
+      query(`
+        SELECT f.id, f.user_id as "userId", f.event_type as "eventType", f.risk_score as "riskScore",
+               f.evidence, f.action_taken as "actionTaken", f.created_at as "createdAt",
+               u.email as "userEmail", u.full_name as "userName"
+        FROM fraud_events f
+        LEFT JOIN users u ON f.user_id = u.id
+        ORDER BY f.created_at DESC
+        LIMIT 100
+      `),
+      query(`
+        SELECT l.id, l.user_id as "userId", l.target_type as "targetType", 
+               COALESCE(l.target_id, l."targetId") as "targetId", l.status,
+               CASE WHEN l.status = 'INVALID' THEN 'HIGH' WHEN l.status = 'SUSPICIOUS' THEN 'MEDIUM' ELSE 'LOW' END as "riskScore",
+               l.ip_address as "ipHash", l.device_fingerprint as "deviceFingerprint",
+               l.created_at as "createdAt",
+               u.email as "userEmail", u.username
+        FROM likes l
+        LEFT JOIN users u ON l.user_id = u.id
+        WHERE l.status IN ('SUSPICIOUS', 'INVALID') OR l.is_valid = FALSE
+        ORDER BY l.created_at DESC
+        LIMIT 100
+      `).catch(() => ({ rows: [] })),
+      query(`
+        SELECT 
+          COUNT(*) FILTER (WHERE risk_score = 'HIGH')::int as high,
+          COUNT(*) FILTER (WHERE risk_score = 'MEDIUM')::int as medium,
+          COUNT(*) FILTER (WHERE risk_score = 'LOW')::int as low
+        FROM fraud_events
+      `).catch(() => ({ rows: [{ high: 0, medium: 0, low: 0 }] })),
+    ]);
+
+    const countsRow = countsRes.rows[0] || {};
+    const riskDistribution = {
+      HIGH: Number(countsRow.high || 0),
+      MEDIUM: Number(countsRow.medium || 0),
+      LOW: Number(countsRow.low || 0),
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        events: eventsRes.rows,
+        suspiciousLikes: suspiciousLikesRes.rows,
+        riskDistribution,
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+router.post('/fraud/action', async (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const { action, eventId, creatorId, deductionINR, notes } = req.body;
+
+  try {
+    if (action === 'VOID_SUSPICIOUS_LIKES') {
+      const updateRes = await query(
+        `UPDATE likes SET status = 'VOIDED', is_valid = FALSE WHERE status IN ('SUSPICIOUS', 'INVALID') RETURNING id`
+      ).catch(() => ({ rowCount: 0 }));
+
+      const count = updateRes.rowCount || 0;
+      await recordAuditLog({
+        actorId: adminUser?.id,
+        action: 'VOID_SUSPICIOUS_LIKES',
+        entityName: 'likes',
+        entityId: 'BATCH',
+        newState: { voidedCount: count },
+      }).catch(() => {});
+
+      return res.status(200).json({
+        success: true,
+        message: `Successfully voided ${count} suspicious likes from creator reward calculations.`,
+      });
+    }
+
+    if (action === 'RESOLVE_EVENT') {
+      if (!eventId) {
+        return res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'eventId is required.' } });
+      }
+
+      await query(
+        `UPDATE fraud_events SET action_taken = 'RESOLVED' WHERE id = $1`,
+        [eventId]
+      );
+
+      await recordAuditLog({
+        actorId: adminUser?.id,
+        action: 'RESOLVE_FRAUD_EVENT',
+        entityName: 'fraud_events',
+        entityId: eventId,
+        newState: { resolvedBy: adminUser?.email },
+      }).catch(() => {});
+
+      return res.status(200).json({ success: true, message: 'Fraud event resolved.' });
+    }
+
+    if (action === 'DEDUCT_WALLET') {
+      if (!creatorId || !deductionINR || deductionINR <= 0) {
+        return res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'creatorId and positive deductionINR are required.' } });
+      }
+
+      const walletRes = await query(
+        `SELECT id, balance_inr FROM creator_wallets WHERE creator_id = $1 OR user_id = $1`,
+        [creatorId]
+      ).catch(() => ({ rows: [] }));
+
+      if (walletRes.rows.length > 0) {
+        const wallet = walletRes.rows[0];
+        const newBalance = Math.max(0, parseFloat(wallet.balance_inr || '0') - deductionINR);
+        await query(
+          `UPDATE creator_wallets SET balance_inr = $1, updated_at = NOW() WHERE id = $2`,
+          [newBalance, wallet.id]
+        );
+
+        await query(
+          `INSERT INTO wallet_transactions (wallet_id, amount_inr, transaction_type, status, description, created_at)
+           VALUES ($1, $2, 'PENALTY_DEDUCTION', 'COMPLETED', $3, NOW())`,
+          [wallet.id, -deductionINR, notes || 'Engagement fraud penalty deduction']
+        ).catch(() => {});
+      }
+
+      await recordAuditLog({
+        actorId: adminUser?.id,
+        action: 'WALLET_FRAUD_PENALTY',
+        entityName: 'creator_wallets',
+        entityId: creatorId,
+        newState: { deductionINR, notes },
+      }).catch(() => {});
+
+      return res.status(200).json({
+        success: true,
+        message: `₹${deductionINR} penalty deduction applied successfully to creator wallet.`,
+      });
+    }
+
+    return res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: `Unknown action: ${action}` } });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }

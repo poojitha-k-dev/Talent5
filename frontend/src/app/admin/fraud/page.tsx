@@ -58,18 +58,40 @@ export default function AdminFraudPage() {
   const [deductNotes, setDeductNotes] = useState('');
   const [deducting, setDeducting] = useState(false);
 
+  const getAuthHeaders = () => {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('talent5_token') : null;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
+
   const fetchFraudData = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/admin/fraud');
+      const res = await fetch('/api/v1/admin/fraud', { headers: getAuthHeaders() });
       const json = await res.json();
-      if (json.success) {
-        setEvents(json.data.events);
-        setSuspiciousLikes(json.data.suspiciousLikes);
-        setRiskDistribution(json.data.riskDistribution);
+      if (json.success && json.data) {
+        if (Array.isArray(json.data)) {
+          setEvents(json.data);
+          const high = json.data.filter((e: any) => e.riskScore === 'HIGH' || e.risk_score === 'HIGH').length;
+          const medium = json.data.filter((e: any) => e.riskScore === 'MEDIUM' || e.risk_score === 'MEDIUM').length;
+          const low = json.data.filter((e: any) => e.riskScore === 'LOW' || e.risk_score === 'LOW').length;
+          setRiskDistribution({ HIGH: high, MEDIUM: medium, LOW: low });
+          setSuspiciousLikes([]);
+        } else {
+          setEvents(Array.isArray(json.data.events) ? json.data.events : []);
+          setSuspiciousLikes(Array.isArray(json.data.suspiciousLikes) ? json.data.suspiciousLikes : []);
+          setRiskDistribution(json.data.riskDistribution || { HIGH: 0, MEDIUM: 0, LOW: 0 });
+        }
+      } else {
+        setEvents([]);
+        setSuspiciousLikes([]);
+        setRiskDistribution({ HIGH: 0, MEDIUM: 0, LOW: 0 });
       }
     } catch (err) {
       console.error('Error fetching fraud cockpit:', err);
+      setRiskDistribution({ HIGH: 0, MEDIUM: 0, LOW: 0 });
     } finally {
       setLoading(false);
     }
@@ -85,7 +107,7 @@ export default function AdminFraudPage() {
     try {
       const res = await fetch('/api/v1/admin/fraud/action', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ action: 'VOID_SUSPICIOUS_LIKES' }),
       });
       const json = await res.json();
@@ -107,7 +129,7 @@ export default function AdminFraudPage() {
     try {
       const res = await fetch('/api/v1/admin/fraud/action', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ action: 'RESOLVE_EVENT', eventId }),
       });
       const json = await res.json();
@@ -127,7 +149,7 @@ export default function AdminFraudPage() {
     try {
       const res = await fetch('/api/v1/admin/fraud/action', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           action: 'DEDUCT_WALLET',
           creatorId: deductCreatorId.trim(),
@@ -225,7 +247,7 @@ export default function AdminFraudPage() {
             <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
           </div>
           <div className="text-3xl font-extrabold text-white mt-2 font-display">
-            {riskDistribution.HIGH}
+            {riskDistribution?.HIGH ?? 0}
           </div>
           <p className="text-[11px] text-gray-400 mt-1">Bot farms, rapid burst velocity, device collisions</p>
         </div>
@@ -236,7 +258,7 @@ export default function AdminFraudPage() {
             <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
           </div>
           <div className="text-3xl font-extrabold text-white mt-2 font-display">
-            {riskDistribution.MEDIUM}
+            {riskDistribution?.MEDIUM ?? 0}
           </div>
           <p className="text-[11px] text-gray-400 mt-1">Creator self-likes, repeated browser fingerprint</p>
         </div>
@@ -247,7 +269,7 @@ export default function AdminFraudPage() {
             <Bot className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-3xl font-extrabold text-white mt-2 font-display">
-            {suspiciousLikes.length}
+            {suspiciousLikes?.length ?? 0}
           </div>
           <p className="text-[11px] text-gray-400 mt-1">Pending automatic or manual void action</p>
         </div>
@@ -263,7 +285,7 @@ export default function AdminFraudPage() {
               : 'text-gray-400 hover:text-white'
           }`}
         >
-          Heuristic Fraud Incidents ({events.length})
+          Heuristic Fraud Incidents ({events?.length ?? 0})
         </button>
         <button
           onClick={() => setActiveTab('LIKES')}
@@ -273,19 +295,19 @@ export default function AdminFraudPage() {
               : 'text-gray-400 hover:text-white'
           }`}
         >
-          Suspicious Likes Stream ({suspiciousLikes.length})
+          Suspicious Likes Stream ({suspiciousLikes?.length ?? 0})
         </button>
       </div>
 
       {/* Events View */}
       {activeTab === 'EVENTS' && (
         <div className="space-y-4">
-          {events.length === 0 ? (
+          {(events || []).length === 0 ? (
             <div className="p-12 text-center rounded-2xl bg-midnight-900/40 border border-white/5 text-gray-400 text-xs">
               No fraud events detected on the platform. All listener engagement is healthy.
             </div>
           ) : (
-            events.map((ev) => (
+            (events || []).map((ev) => (
               <div
                 key={ev.id}
                 className="p-5 rounded-2xl bg-midnight-900/70 border border-white/5 hover:border-white/15 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
@@ -359,14 +381,14 @@ export default function AdminFraudPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {suspiciousLikes.length === 0 ? (
+                {(suspiciousLikes || []).length === 0 ? (
                   <tr>
                     <td colSpan={6} className="py-8 text-center text-gray-500">
                       No suspicious likes currently queued.
                     </td>
                   </tr>
                 ) : (
-                  suspiciousLikes.map((like) => (
+                  (suspiciousLikes || []).map((like) => (
                     <tr key={like.id} className="hover:bg-white/[0.02]">
                       <td className="py-3 px-4">
                         <div className="text-white font-medium">{like.userEmail}</div>
