@@ -125,6 +125,31 @@ export default function AdminFraudPage() {
     }
   };
 
+  const [resolvingAll, setResolvingAll] = useState(false);
+
+  const handleResolveAllEvents = async () => {
+    setResolvingAll(true);
+    try {
+      const res = await fetch('/api/v1/admin/fraud/action', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ action: 'RESOLVE_ALL_EVENTS' }),
+      });
+      const json = await res.json();
+
+      if (json.success) {
+        setToast({ type: 'success', text: json.message });
+        fetchFraudData();
+      } else {
+        setToast({ type: 'error', text: json.error?.message || 'Action failed' });
+      }
+    } catch (err: any) {
+      setToast({ type: 'error', text: err.message || 'Network error' });
+    } finally {
+      setResolvingAll(false);
+    }
+  };
+
   const handleResolveEvent = async (eventId: string) => {
     try {
       const res = await fetch('/api/v1/admin/fraud/action', {
@@ -202,6 +227,18 @@ export default function AdminFraudPage() {
             <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh Signals
           </Button>
+          {events.some((ev) => ev.actionTaken !== 'RESOLVED') && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleResolveAllEvents}
+              disabled={resolvingAll}
+              className="text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 text-xs bg-emerald-500/5 hover:bg-emerald-500/10"
+            >
+              <CheckCircle className="w-3.5 h-3.5 mr-1.5 text-emerald-400" />
+              {resolvingAll ? 'Resolving...' : 'Resolve All Active'}
+            </Button>
+          )}
           <Button
             variant="danger"
             size="sm"
@@ -345,15 +382,28 @@ export default function AdminFraudPage() {
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-400">
-                    Status: <strong className="text-white">{ev.actionTaken}</strong>
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${
+                      ev.actionTaken === 'RESOLVED'
+                        ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+                        : 'bg-amber-500/10 text-amber-300 border-amber-500/30'
+                    }`}
+                  >
+                    {ev.actionTaken === 'RESOLVED' ? (
+                      <>
+                        <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+                        <span>RESOLVED</span>
+                      </>
+                    ) : (
+                      <span>{ev.actionTaken}</span>
+                    )}
                   </span>
                   {ev.actionTaken !== 'RESOLVED' && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => handleResolveEvent(ev.id)}
-                      className="text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/20"
+                      className="text-xs text-emerald-400 hover:text-emerald-300 border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10"
                     >
                       Mark Resolved
                     </Button>

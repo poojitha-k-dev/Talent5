@@ -652,24 +652,27 @@ router.get('/fraud', async (_req: Request, res: Response) => {
       `),
       query(`
         SELECT l.id, l.user_id as "userId", l.target_type as "targetType", 
-               COALESCE(l.target_id, l."targetId") as "targetId", l.status,
-               CASE WHEN l.status = 'INVALID' THEN 'HIGH' WHEN l.status = 'SUSPICIOUS' THEN 'MEDIUM' ELSE 'LOW' END as "riskScore",
-               l.ip_address as "ipHash", l.device_fingerprint as "deviceFingerprint",
+               l.target_id as "targetId", l.status,
+               COALESCE(l.risk_score, CASE WHEN l.status = 'INVALID' THEN 'HIGH' WHEN l.status = 'SUSPICIOUS' THEN 'MEDIUM' ELSE 'LOW' END) as "riskScore",
+               l.ip_hash as "ipHash", l.device_fingerprint as "deviceFingerprint",
+               l.user_agent as "userAgent",
                l.created_at as "createdAt",
                u.email as "userEmail", u.username
         FROM likes l
         LEFT JOIN users u ON l.user_id = u.id
-        WHERE l.status IN ('SUSPICIOUS', 'INVALID') OR l.is_valid = FALSE
+        WHERE l.status IN ('SUSPICIOUS', 'INVALID')
         ORDER BY l.created_at DESC
         LIMIT 100
       `).catch(() => ({ rows: [] })),
       query(`
         SELECT 
-          COUNT(*) FILTER (WHERE risk_score = 'HIGH')::int as high,
-          COUNT(*) FILTER (WHERE risk_score = 'MEDIUM')::int as medium,
-          COUNT(*) FILTER (WHERE risk_score = 'LOW')::int as low
+          COUNT(*) FILTER (WHERE risk_score = 'HIGH' AND action_taken != 'RESOLVED')::int as high,
+          COUNT(*) FILTER (WHERE risk_score = 'MEDIUM' AND action_taken != 'RESOLVED')::int as medium,
+          COUNT(*) FILTER (WHERE risk_score = 'LOW' AND action_taken != 'RESOLVED')::int as low,
+          COUNT(*) FILTER (WHERE action_taken = 'RESOLVED')::int as resolved,
+          COUNT(*)::int as total
         FROM fraud_events
-      `).catch(() => ({ rows: [{ high: 0, medium: 0, low: 0 }] })),
+      `).catch(() => ({ rows: [{ high: 0, medium: 0, low: 0, resolved: 0, total: 0 }] })),
     ]);
 
     const countsRow = countsRes.rows[0] || {};
@@ -677,6 +680,8 @@ router.get('/fraud', async (_req: Request, res: Response) => {
       HIGH: Number(countsRow.high || 0),
       MEDIUM: Number(countsRow.medium || 0),
       LOW: Number(countsRow.low || 0),
+      RESOLVED: Number(countsRow.resolved || 0),
+      TOTAL: Number(countsRow.total || 0),
     };
 
     return res.status(200).json({
@@ -699,7 +704,7 @@ router.post('/fraud/action', async (req: Request, res: Response) => {
   try {
     if (action === 'VOID_SUSPICIOUS_LIKES') {
       const updateRes = await query(
-        `UPDATE likes SET status = 'VOIDED', is_valid = FALSE WHERE status IN ('SUSPICIOUS', 'INVALID') RETURNING id`
+        `UPDATE likes SET status = 'VOIDED' WHERE status IN ('SUSPICIOUS', 'INVALID') RETURNING id`
       ).catch(() => ({ rowCount: 0 }));
 
       const count = updateRes.rowCount || 0;
@@ -715,6 +720,23 @@ router.post('/fraud/action', async (req: Request, res: Response) => {
         success: true,
         message: `Successfully voided ${count} suspicious likes from creator reward calculations.`,
       });
+    }
+
+    if (action === 'RESOLVE_ALL_EVENTS') {
+      const updateRes = await query(
+        `UPDATE fraud_events SET action_taken = 'RESOLVED' WHERE action_taken != 'RESOLVED' RETURNING id`
+      ).catch(() => ({ rowCount: 0 }));
+
+      const count = updateRes.rowCount || 0;
+      await recordAuditLog({
+        actorId: adminUser?.id,
+        action: 'RESOLVE_ALL_FRAUD_EVENTS',
+        entityName: 'fraud_events',
+        entityId: 'BATCH',
+        newState: { resolvedCount: count, resolvedBy: adminUser?.email },
+      }).catch(() => {});
+
+      return res.status(200).json({ success: true, message: `All ${count} active fraud incidents have been resolved.` });
     }
 
     if (action === 'RESOLVE_EVENT') {
