@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { query, getClient } from '../lib/db';
 import { authenticateAdmin, recordAuditLog } from '../lib/admin';
 import { hashPassword, slugify } from '@talent5/utils';
+import { runAuditionInspection } from '../lib/auditionModel';
 
 const router = Router();
 
@@ -639,8 +640,166 @@ router.patch('/payouts/:id', async (req: Request, res: Response) => {
 
 router.get('/fraud', async (_req: Request, res: Response) => {
   try {
-    const r = await query(`SELECT f.*, u.email, u.full_name as "userName" FROM fraud_events f LEFT JOIN users u ON f.user_id = u.id ORDER BY f.created_at DESC LIMIT 100`);
-    return res.status(200).json({ success: true, data: r.rows });
+    const [eventsRes, suspiciousLikesRes, countsRes] = await Promise.all([
+      query(`
+        SELECT f.id, f.user_id as "userId", f.event_type as "eventType", f.risk_score as "riskScore",
+               f.evidence, f.action_taken as "actionTaken", f.created_at as "createdAt",
+               u.email as "userEmail", u.full_name as "userName"
+        FROM fraud_events f
+        LEFT JOIN users u ON f.user_id = u.id
+        ORDER BY f.created_at DESC
+        LIMIT 100
+      `),
+      query(`
+        SELECT l.id, l.user_id as "userId", l.target_type as "targetType", 
+               l.target_id as "targetId", l.status,
+               COALESCE(l.risk_score, CASE WHEN l.status = 'INVALID' THEN 'HIGH' WHEN l.status = 'SUSPICIOUS' THEN 'MEDIUM' ELSE 'LOW' END) as "riskScore",
+               l.ip_hash as "ipHash", l.device_fingerprint as "deviceFingerprint",
+               l.user_agent as "userAgent",
+               l.created_at as "createdAt",
+               u.email as "userEmail", u.username
+        FROM likes l
+        LEFT JOIN users u ON l.user_id = u.id
+        WHERE l.status IN ('SUSPICIOUS', 'INVALID')
+        ORDER BY l.created_at DESC
+        LIMIT 100
+      `).catch(() => ({ rows: [] })),
+      query(`
+        SELECT 
+          COUNT(*) FILTER (WHERE risk_score = 'HIGH' AND action_taken != 'RESOLVED')::int as high,
+          COUNT(*) FILTER (WHERE risk_score = 'MEDIUM' AND action_taken != 'RESOLVED')::int as medium,
+          COUNT(*) FILTER (WHERE risk_score = 'LOW' AND action_taken != 'RESOLVED')::int as low,
+          COUNT(*) FILTER (WHERE action_taken = 'RESOLVED')::int as resolved,
+          COUNT(*)::int as total
+        FROM fraud_events
+      `).catch(() => ({ rows: [{ high: 0, medium: 0, low: 0, resolved: 0, total: 0 }] })),
+    ]);
+
+    const countsRow = countsRes.rows[0] || {};
+    const riskDistribution = {
+      HIGH: Number(countsRow.high || 0),
+      MEDIUM: Number(countsRow.medium || 0),
+      LOW: Number(countsRow.low || 0),
+      RESOLVED: Number(countsRow.resolved || 0),
+      TOTAL: Number(countsRow.total || 0),
+    };
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        events: eventsRes.rows,
+        suspiciousLikes: suspiciousLikesRes.rows,
+        riskDistribution,
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+router.post('/fraud/action', async (req: Request, res: Response) => {
+  const adminUser = (req as any).user;
+  const { action, eventId, creatorId, deductionINR, notes } = req.body;
+
+  try {
+    if (action === 'VOID_SUSPICIOUS_LIKES') {
+      const updateRes = await query(
+        `UPDATE likes SET status = 'VOIDED' WHERE status IN ('SUSPICIOUS', 'INVALID') RETURNING id`
+      ).catch(() => ({ rowCount: 0 }));
+
+      const count = updateRes.rowCount || 0;
+      await recordAuditLog({
+        actorId: adminUser?.id,
+        action: 'VOID_SUSPICIOUS_LIKES',
+        entityName: 'likes',
+        entityId: 'BATCH',
+        newState: { voidedCount: count },
+      }).catch(() => {});
+
+      return res.status(200).json({
+        success: true,
+        message: `Successfully voided ${count} suspicious likes from creator reward calculations.`,
+      });
+    }
+
+    if (action === 'RESOLVE_ALL_EVENTS') {
+      const updateRes = await query(
+        `UPDATE fraud_events SET action_taken = 'RESOLVED' WHERE action_taken != 'RESOLVED' RETURNING id`
+      ).catch(() => ({ rowCount: 0 }));
+
+      const count = updateRes.rowCount || 0;
+      await recordAuditLog({
+        actorId: adminUser?.id,
+        action: 'RESOLVE_ALL_FRAUD_EVENTS',
+        entityName: 'fraud_events',
+        entityId: 'BATCH',
+        newState: { resolvedCount: count, resolvedBy: adminUser?.email },
+      }).catch(() => {});
+
+      return res.status(200).json({ success: true, message: `All ${count} active fraud incidents have been resolved.` });
+    }
+
+    if (action === 'RESOLVE_EVENT') {
+      if (!eventId) {
+        return res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'eventId is required.' } });
+      }
+
+      await query(
+        `UPDATE fraud_events SET action_taken = 'RESOLVED' WHERE id = $1`,
+        [eventId]
+      );
+
+      await recordAuditLog({
+        actorId: adminUser?.id,
+        action: 'RESOLVE_FRAUD_EVENT',
+        entityName: 'fraud_events',
+        entityId: eventId,
+        newState: { resolvedBy: adminUser?.email },
+      }).catch(() => {});
+
+      return res.status(200).json({ success: true, message: 'Fraud event resolved.' });
+    }
+
+    if (action === 'DEDUCT_WALLET') {
+      if (!creatorId || !deductionINR || deductionINR <= 0) {
+        return res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: 'creatorId and positive deductionINR are required.' } });
+      }
+
+      const walletRes = await query(
+        `SELECT id, balance_inr FROM creator_wallets WHERE creator_id = $1 OR user_id = $1`,
+        [creatorId]
+      ).catch(() => ({ rows: [] }));
+
+      if (walletRes.rows.length > 0) {
+        const wallet = walletRes.rows[0];
+        const newBalance = Math.max(0, parseFloat(wallet.balance_inr || '0') - deductionINR);
+        await query(
+          `UPDATE creator_wallets SET balance_inr = $1, updated_at = NOW() WHERE id = $2`,
+          [newBalance, wallet.id]
+        );
+
+        await query(
+          `INSERT INTO wallet_transactions (wallet_id, amount_inr, transaction_type, status, description, created_at)
+           VALUES ($1, $2, 'PENALTY_DEDUCTION', 'COMPLETED', $3, NOW())`,
+          [wallet.id, -deductionINR, notes || 'Engagement fraud penalty deduction']
+        ).catch(() => {});
+      }
+
+      await recordAuditLog({
+        actorId: adminUser?.id,
+        action: 'WALLET_FRAUD_PENALTY',
+        entityName: 'creator_wallets',
+        entityId: creatorId,
+        newState: { deductionINR, notes },
+      }).catch(() => {});
+
+      return res.status(200).json({
+        success: true,
+        message: `₹${deductionINR} penalty deduction applied successfully to creator wallet.`,
+      });
+    }
+
+    return res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: `Unknown action: ${action}` } });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }
@@ -655,10 +814,170 @@ router.get('/audit-logs', async (_req: Request, res: Response) => {
   }
 });
 
-router.get('/applications', async (_req: Request, res: Response) => {
+router.get('/applications', async (req: Request, res: Response) => {
   try {
-    const r = await query(`SELECT * FROM creator_applications ORDER BY created_at DESC LIMIT 100`);
-    return res.status(200).json({ success: true, data: r.rows });
+    const { status, category, search, risk } = req.query;
+    let sql = `
+      SELECT 
+        ca.id,
+        ca.user_id as "userId",
+        ca.full_name as "fullName",
+        ca.stage_name as "stageName",
+        ca.bio,
+        ca.city,
+        ca.state,
+        ca.languages,
+        ca.category,
+        ca.genres,
+        ca.experience,
+        ca.social_links as "socialLinks",
+        ca.portfolio_url as "portfolioUrl",
+        ca.sample_performance_url as "samplePerformanceUrl",
+        ca.original_composition_info as "originalCompositionInfo",
+        ca.ownership_declaration as "ownershipDeclaration",
+        ca.copyright_declaration as "copyrightDeclaration",
+        ca.status,
+        ca.reviewed_by as "reviewedBy",
+        ca.review_notes as "reviewNotes",
+        ca.created_at as "createdAt",
+        ca.ai_moderation_report as "aiModerationReport",
+        ca.ai_safety_score as "aiSafetyScore",
+        ca.ai_recommendation as "aiRecommendation",
+        ca.creation_intent as "creationIntent",
+        ca.performed_song_reference as "performedSongReference",
+        ca.plagiarism_risk_level as "plagiarismRiskLevel",
+        ca.matched_song_title as "matchedSongTitle",
+        ca.matched_song_artist as "matchedSongArtist",
+        ca.similarity_percentage as "similarityPercentage",
+        ca.plagiarism_details as "plagiarismDetails",
+        u.email as "userEmail",
+        u.phone as "userPhone"
+      FROM creator_applications ca
+      LEFT JOIN users u ON ca.user_id = u.id
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+    if (status && status !== 'ALL') {
+      params.push(status);
+      sql += ` AND ca.status = $${params.length}`;
+    }
+    if (category && category !== 'ALL') {
+      params.push(category);
+      sql += ` AND ca.category = $${params.length}`;
+    }
+    const intent = typeof req.query.intent === 'string' ? req.query.intent.toUpperCase() : 'ALL';
+    if (intent && intent !== 'ALL') {
+      params.push(intent);
+      sql += ` AND ca.creation_intent = $${params.length}`;
+    }
+    const riskLevel = typeof risk === 'string' ? risk.toUpperCase() : 'ALL';
+    if (riskLevel && riskLevel !== 'ALL') {
+      params.push(riskLevel);
+      sql += ` AND ca.plagiarism_risk_level = $${params.length}`;
+    }
+    if (search && String(search).trim()) {
+      params.push(`%${String(search).trim()}%`);
+      sql += ` AND (ca.stage_name ILIKE $${params.length} OR ca.full_name ILIKE $${params.length} OR ca.city ILIKE $${params.length} OR ca.matched_song_title ILIKE $${params.length})`;
+    }
+    sql += ` ORDER BY ca.created_at DESC LIMIT 100`;
+
+    const [r, countsRes] = await Promise.all([
+      query(sql, params),
+      query(`
+        SELECT 
+          COUNT(*)::int as total,
+          COUNT(*) FILTER (WHERE status = 'PENDING')::int as pending,
+          COUNT(*) FILTER (WHERE status = 'UNDER_REVIEW')::int as under_review,
+          COUNT(*) FILTER (WHERE status = 'APPROVED')::int as approved,
+          COUNT(*) FILTER (WHERE status = 'REJECTED')::int as rejected,
+          COUNT(*) FILTER (WHERE creation_intent = 'ORIGINAL_CREATION')::int as original_creation,
+          COUNT(*) FILTER (WHERE creation_intent = 'VOCAL_SHOWCASE')::int as vocal_showcase,
+          COUNT(*) FILTER (WHERE plagiarism_risk_level = 'HIGH_PLAGIARISM_ALERT')::int as high_plagiarism
+        FROM creator_applications
+      `).catch(() => ({ rows: [{ total: 0, pending: 0, under_review: 0, approved: 0, rejected: 0, original_creation: 0, vocal_showcase: 0, high_plagiarism: 0 }] })),
+    ]);
+
+    const countsRow = countsRes.rows[0] || {};
+    const counts = {
+      total: Number(countsRow.total || 0),
+      pending: Number(countsRow.pending || 0),
+      underReview: Number(countsRow.under_review || 0),
+      approved: Number(countsRow.approved || 0),
+      rejected: Number(countsRow.rejected || 0),
+      originalCreation: Number(countsRow.original_creation || 0),
+      vocalShowcase: Number(countsRow.vocal_showcase || 0),
+      highPlagiarism: Number(countsRow.high_plagiarism || 0),
+    };
+
+    return res.status(200).json({ success: true, data: r.rows, counts });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+router.post('/applications/:id/scan', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const appRes = await query(`SELECT * FROM creator_applications WHERE id = $1`, [id]);
+    if (appRes.rows.length === 0) {
+      return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Application not found' } });
+    }
+    const app = appRes.rows[0];
+
+    const report = await runAuditionInspection({
+      id: app.id,
+      fullName: app.full_name,
+      stageName: app.stage_name,
+      bio: app.bio,
+      city: app.city,
+      state: app.state,
+      languages: app.languages,
+      category: app.category,
+      genres: app.genres,
+      experience: app.experience,
+      samplePerformanceUrl: app.sample_performance_url,
+      portfolioUrl: app.portfolio_url,
+      originalCompositionInfo: app.original_composition_info,
+      ownershipDeclaration: app.ownership_declaration,
+      copyrightDeclaration: app.copyright_declaration,
+      creationIntent: app.creation_intent,
+      performedSongReference: app.performed_song_reference,
+    });
+
+    await query(
+      `UPDATE creator_applications 
+       SET ai_moderation_report = $1,
+           ai_safety_score = $2,
+           ai_recommendation = $3,
+           plagiarism_risk_level = $4,
+           matched_song_title = $5,
+           matched_song_artist = $6,
+           similarity_percentage = $7,
+           plagiarism_details = $8
+       WHERE id = $9`,
+      [
+        JSON.stringify(report),
+        report.safetyScore,
+        report.recommendation,
+        report.plagiarismReport.plagiarismRiskLevel,
+        report.plagiarismReport.matchedSongTitle,
+        report.plagiarismReport.matchedSongArtist,
+        report.plagiarismReport.similarityPercentage,
+        JSON.stringify(report.plagiarismReport),
+        id,
+      ]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'AI Audition & Plagiarism Inspection completed',
+      data: {
+        aiModerationReport: report,
+        aiSafetyScore: report.safetyScore,
+        aiRecommendation: report.recommendation,
+        plagiarismReport: report.plagiarismReport,
+      },
+    });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }
@@ -667,9 +986,88 @@ router.get('/applications', async (_req: Request, res: Response) => {
 router.patch('/applications/:id', async (req: Request, res: Response) => {
   const actor = (req as any).user;
   try {
-    const { status, notes } = req.body;
-    await query(`UPDATE creator_applications SET status = $1, reviewed_by = $2, review_notes = $3 WHERE id = $4`, [status, actor.id, notes, req.params.id]);
-    return res.status(200).json({ success: true, message: 'Application updated' });
+    const { id } = req.params;
+    const action = (req.body.action || req.body.status || '').toUpperCase();
+    const notes = req.body.notes || '';
+
+    let newStatus = 'UNDER_REVIEW';
+    if (action === 'APPROVE' || action === 'APPROVED') newStatus = 'APPROVED';
+    else if (action === 'REJECT' || action === 'REJECTED') newStatus = 'REJECTED';
+    else if (action === 'UNDER_REVIEW') newStatus = 'UNDER_REVIEW';
+    else if (action === 'SUSPEND' || action === 'SUSPENDED') newStatus = 'SUSPENDED';
+
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+
+      const appRes = await client.query(`SELECT * FROM creator_applications WHERE id = $1`, [id]);
+      if (appRes.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ success: false, error: { code: 'NOT_FOUND', message: 'Application not found' } });
+      }
+      const app = appRes.rows[0];
+
+      await client.query(
+        `UPDATE creator_applications 
+         SET status = $1, reviewed_by = $2, review_notes = $3 
+         WHERE id = $4`,
+        [newStatus, actor.id, notes, id]
+      );
+
+      // If approved, provision creator profile and assign CREATOR role
+      if (newStatus === 'APPROVED') {
+        const creatorRoleIdRes = await client.query(`SELECT id FROM roles WHERE name = 'CREATOR'`);
+        if (creatorRoleIdRes.rows.length > 0) {
+          await client.query(
+            `INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+            [app.user_id, creatorRoleIdRes.rows[0].id]
+          );
+        }
+
+        // Provision or update creator profile
+        await client.query(
+          `INSERT INTO creator_profiles (user_id, stage_name, bio, city, state, category, is_approved, verified_badge)
+           VALUES ($1, $2, $3, $4, $5, $6, TRUE, TRUE)
+           ON CONFLICT (user_id) DO UPDATE SET 
+             stage_name = EXCLUDED.stage_name,
+             bio = EXCLUDED.bio,
+             city = EXCLUDED.city,
+             state = EXCLUDED.state,
+             category = EXCLUDED.category,
+             is_approved = TRUE,
+             verified_badge = TRUE`,
+          [
+            app.user_id,
+            app.stage_name || app.full_name,
+            app.bio || 'Verified Talent5 Desi Music Creator',
+            app.city || 'Mumbai',
+            app.state || 'Maharashtra',
+            app.category || 'SINGER',
+          ]
+        );
+      }
+
+      await client.query('COMMIT');
+
+      await recordAuditLog({
+        actorId: actor.id,
+        action: `ADMIN_${newStatus}_CREATOR_APPLICATION`,
+        entityName: 'CREATOR_APPLICATION',
+        entityId: id,
+        newState: { status: newStatus, reviewNotes: notes, applicantId: app.user_id },
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: `Application ${newStatus.toLowerCase()} successfully`,
+        data: { status: newStatus },
+      });
+    } catch (txErr) {
+      await client.query('ROLLBACK');
+      throw txErr;
+    } finally {
+      client.release();
+    }
   } catch (err: any) {
     return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }

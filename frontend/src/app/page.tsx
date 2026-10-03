@@ -13,6 +13,7 @@ import {
   Sparkles,
   Bell,
   Check,
+  Shield,
   LogIn,
 } from 'lucide-react';
 import { useAudio } from '@/context/AudioContext';
@@ -252,6 +253,16 @@ export default function RootHomePage() {
 
         {/* Right Corner Actions */}
         <div className="flex items-center gap-3">
+          <Link
+            href="/admin/login"
+            prefetch={false}
+            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 transition-all"
+            title="Talent5 Admin Portal Gateway"
+          >
+            <Shield className="w-3.5 h-3.5 text-rose-400" />
+            <span>Admin</span>
+          </Link>
+
           <Link
             href="/creator-studio/apply"
             className="hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.1] hover:border-orange-500/30 text-white transition-all shadow-sm"

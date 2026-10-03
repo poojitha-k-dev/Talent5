@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { query, getClient } from '../lib/db';
 import { getUserFromRequest } from '../lib/auth';
 import { getActiveRewardRule } from '../lib/rewards';
+import { runAuditionInspection } from '../lib/auditionModel';
 
 const router = Router();
 
@@ -29,6 +30,8 @@ router.post('/apply', async (req: Request, res: Response) => {
       originalCompositionInfo,
       ownershipDeclaration,
       copyrightDeclaration,
+      creationIntent,
+      performedSongReference,
     } = req.body;
 
     // Strict validation
@@ -45,6 +48,9 @@ router.post('/apply', async (req: Request, res: Response) => {
         message: 'You must accept both the 100% Original Ownership declaration and Copyright compliance declaration to apply.',
       });
     }
+
+    const verifiedIntent = creationIntent === 'VOCAL_SHOWCASE' ? 'VOCAL_SHOWCASE' : 'ORIGINAL_CREATION';
+    const cleanPerformedRef = (performedSongReference || '').trim() || null;
 
     // Check if user already has an existing pending or approved application
     const existingApp = await query(
@@ -67,9 +73,10 @@ router.post('/apply', async (req: Request, res: Response) => {
         `INSERT INTO creator_applications (
            user_id, full_name, stage_name, bio, city, state, languages, category,
            genres, experience, social_links, portfolio_url, sample_performance_url,
-           original_composition_info, ownership_declaration, copyright_declaration, status
+           original_composition_info, ownership_declaration, copyright_declaration,
+           creation_intent, performed_song_reference, status
          ) VALUES (
-           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'PENDING'
+           $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'PENDING'
          ) RETURNING id, status, created_at as "createdAt"`,
         [
           user.id,
@@ -88,6 +95,56 @@ router.post('/apply', async (req: Request, res: Response) => {
           originalCompositionInfo?.trim() || 'Original songwriting & acoustics',
           true,
           true,
+          verifiedIntent,
+          cleanPerformedRef,
+        ]
+      );
+
+      const appId = appInsert.rows[0].id;
+
+      // Run AI Audition & Plagiarism Checker model immediately
+      const aiReport = await runAuditionInspection({
+        id: appId,
+        fullName: fullName.trim(),
+        stageName: stageName.trim(),
+        bio: bio.trim(),
+        city: city.trim(),
+        state: state.trim(),
+        languages: languages || ['Hindi'],
+        category: category || 'SINGER',
+        genres: genres || ['Acoustic & Unplugged'],
+        experience: experience?.trim(),
+        samplePerformanceUrl: samplePerformanceUrl.trim(),
+        portfolioUrl: portfolioUrl?.trim(),
+        originalCompositionInfo: originalCompositionInfo?.trim(),
+        ownershipDeclaration: true,
+        copyrightDeclaration: true,
+        creationIntent: verifiedIntent,
+        performedSongReference: cleanPerformedRef,
+      });
+
+      // Update application with AI Inspection and Plagiarism findings
+      await client.query(
+        `UPDATE creator_applications
+         SET ai_moderation_report = $1,
+             ai_safety_score = $2,
+             ai_recommendation = $3,
+             plagiarism_risk_level = $4,
+             matched_song_title = $5,
+             matched_song_artist = $6,
+             similarity_percentage = $7,
+             plagiarism_details = $8
+         WHERE id = $9`,
+        [
+          JSON.stringify(aiReport),
+          aiReport.safetyScore,
+          aiReport.recommendation,
+          aiReport.plagiarismReport.plagiarismRiskLevel,
+          aiReport.plagiarismReport.matchedSongTitle,
+          aiReport.plagiarismReport.matchedSongArtist,
+          aiReport.plagiarismReport.similarityPercentage,
+          JSON.stringify(aiReport.plagiarismReport),
+          appId,
         ]
       );
 
@@ -97,8 +154,8 @@ router.post('/apply', async (req: Request, res: Response) => {
          VALUES ($1, 'CREATOR_APPLICATION_SUBMITTED', 'creator_applications', $2, $3)`,
         [
           user.id,
-          appInsert.rows[0].id,
-          JSON.stringify({ stageName, category, city, state }),
+          appId,
+          JSON.stringify({ stageName, category, city, state, creationIntent: verifiedIntent }),
         ]
       );
 
@@ -107,7 +164,12 @@ router.post('/apply', async (req: Request, res: Response) => {
       return res.status(201).json({
         success: true,
         message: 'Creator application submitted successfully. Talent5 moderators will review your audition within 24-48 hours.',
-        data: appInsert.rows[0],
+        data: {
+          ...appInsert.rows[0],
+          creationIntent: verifiedIntent,
+          aiSafetyScore: aiReport.safetyScore,
+          aiRecommendation: aiReport.recommendation,
+        },
       });
     } catch (err) {
       await client.query('ROLLBACK');
@@ -153,7 +215,14 @@ router.get('/status', async (req: Request, res: Response) => {
     // 2. Check pending or recent application
     const appRes = await query(
       `SELECT id, stage_name as "stageName", category, status, created_at as "createdAt",
-              review_notes as "reviewNotes"
+              review_notes as "reviewNotes", creation_intent as "creationIntent",
+              performed_song_reference as "performedSongReference",
+              plagiarism_risk_level as "plagiarismRiskLevel",
+              matched_song_title as "matchedSongTitle",
+              matched_song_artist as "matchedSongArtist",
+              similarity_percentage as "similarityPercentage",
+              ai_safety_score as "aiSafetyScore",
+              ai_recommendation as "aiRecommendation"
        FROM creator_applications
        WHERE user_id = $1
        ORDER BY created_at DESC

@@ -161,6 +161,11 @@ function LoginForm() {
 
     if (oauthError) {
       setError(decodeURIComponent(oauthError));
+      if (typeof window !== 'undefined') {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete('error');
+        window.history.replaceState({}, '', cleanUrl.pathname + (cleanUrl.search ? cleanUrl.search : ''));
+      }
     }
 
     if (googleAuth === 'success' && tokenFromUrl) {
@@ -620,9 +625,19 @@ function LoginForm() {
 
           {/* Error Banner */}
           {error && (
-            <div className="mb-4 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs flex items-center gap-2.5 animate-shake">
-              <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
-              <span className="leading-snug">{error}</span>
+            <div className="mb-4 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs flex items-center justify-between gap-2.5 animate-shake">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <AlertCircle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                <span className="leading-snug">{error}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setError(null)}
+                className="text-rose-400 hover:text-white transition-colors p-1 flex-shrink-0"
+                aria-label="Dismiss error"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
 
@@ -630,6 +645,7 @@ function LoginForm() {
           <div className="mb-4">
             <a
               href={`/api/v1/auth/google?redirect=${encodeURIComponent(redirectPath)}`}
+              onClick={() => setError(null)}
               className="w-full py-2.5 px-4 rounded-xl font-bold text-xs flex items-center justify-center gap-2.5 transition-all bg-white hover:bg-gray-100 text-gray-900 border border-white/20 shadow-md hover:shadow-lg cursor-pointer group"
             >
               <GoogleIcon className="w-4 h-4 flex-shrink-0" />
@@ -867,6 +883,7 @@ function LoginForm() {
           </div>
           <Link
             href="/admin/login"
+            prefetch={false}
             className="text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 transition-colors"
           >
             <span>Command Center Gateway</span>
