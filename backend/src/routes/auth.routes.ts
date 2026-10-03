@@ -282,6 +282,7 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 router.get('/google', async (req: Request, res: Response) => {
   try {
     const redirectPath = (req.query.redirect as string) || '/';
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
 
     // Support instant development mock sign-in for testing without Google Cloud setup
