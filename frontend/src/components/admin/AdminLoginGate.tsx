@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -13,6 +13,7 @@ import {
   EyeOff,
   AlertTriangle,
   ArrowLeft,
+  ArrowRight,
   KeyRound,
   Activity,
   Cpu,
@@ -42,8 +43,15 @@ function AdminLoginGateInternal() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectPath = searchParams.get('redirect') || '/admin';
-  const { login } = useAuth();
+  const { user, login } = useAuth();
+  const isAdmin =
+    Array.isArray(user?.roles) &&
+    (user.roles.includes('ADMIN') ||
+      user.roles.includes('SUPER_ADMIN') ||
+      user.roles.includes('FINANCE') ||
+      user.roles.includes('MODERATOR'));
 
+  const [showSwitchForm, setShowSwitchForm] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -265,6 +273,57 @@ function AdminLoginGateInternal() {
               Enter your privileged credentials to unlock the Talent5 Command Center.
             </p>
 
+            {/* Active Session Detected Banner */}
+            {isAdmin && !showSwitchForm ? (
+              <div className="space-y-6">
+                <div className="p-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border border-emerald-500/30 text-emerald-200">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white text-sm">Privileged Session Active</h3>
+                      <p className="text-[11px] text-emerald-300 font-mono">
+                        Clearance verified for {user?.email}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-300 leading-relaxed mb-4">
+                    You are currently authenticated as an administrator ({user?.roles?.join(', ')}). You can proceed straight to the Command Center.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => router.push(redirectPath)}
+                    className="w-full py-3.5 px-4 rounded-xl font-bold text-xs uppercase tracking-wider bg-gradient-to-r from-amber-500 via-rose-500 to-rose-600 hover:from-amber-400 hover:to-rose-500 text-white flex items-center justify-center gap-2 shadow-lg shadow-rose-950/40 transition-all cursor-pointer"
+                  >
+                    <span>Enter Command Center Dashboard</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                <div className="text-center pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowSwitchForm(true)}
+                    className="text-xs text-gray-400 hover:text-white transition-colors underline underline-offset-4 cursor-pointer"
+                  >
+                    Sign in with a different administrator account →
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {isAdmin && showSwitchForm && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSwitchForm(false)}
+                    className="mb-4 text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer font-medium"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Return to active session ({user?.email})</span>
+                  </button>
+                )}
+
             {/* Error Banner */}
             {error && (
               <div className="mb-5 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-200 text-xs flex items-start justify-between gap-2.5 animate-shake">
@@ -366,6 +425,8 @@ function AdminLoginGateInternal() {
                 )}
               </button>
             </form>
+            </>
+          )}
           </div>
 
           {/* Navigation Links */}

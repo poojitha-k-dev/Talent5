@@ -3,23 +3,29 @@
 import React from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Compass, Mic2, Trophy, Library } from 'lucide-react';
+import { Home, Compass, Mic2, Trophy, Library, Shield } from 'lucide-react';
+import { useAuth } from '@/context/AuthContext';
 
 export const MobileNav: React.FC = () => {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const isAdmin =
+    Array.isArray(user?.roles) &&
+    (user.roles.includes('ADMIN') || user.roles.includes('SUPER_ADMIN'));
 
   // Hide on admin or auth login/register screens
   if (pathname.startsWith('/admin') || pathname === '/login' || pathname === '/register') {
     return null;
   }
 
-  // 5 CORE PILLARS FOR MOBILE
+  // CORE PILLARS FOR MOBILE (Includes Admin if privileged)
   const items = [
     { name: 'Home', href: '/', icon: Home },
     { name: 'Discover', href: '/discover', icon: Compass },
     { name: 'New Talent', href: '/new-talent', icon: Mic2, highlight: true },
     { name: 'Contests', href: '/competitions', icon: Trophy },
     { name: 'Library', href: '/library', icon: Library },
+    ...(isAdmin ? [{ name: 'Admin', href: '/admin', icon: Shield, highlight: true }] : []),
   ];
 
   return (

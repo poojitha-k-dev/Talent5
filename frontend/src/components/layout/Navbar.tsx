@@ -159,14 +159,15 @@ export const Navbar: React.FC = () => {
             )}
           </Link>
 
-          {/* Admin Command Center Link */}
+          {/* Admin Command Center Link (Always visible for administrators) */}
           {isAdmin && (
             <Link
               href="/admin"
-              className="hidden xl:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30 transition-all"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-rose-500/15 via-rose-500/20 to-amber-500/15 hover:from-rose-500/25 hover:to-amber-500/25 text-rose-600 dark:text-rose-300 border border-rose-500/30 hover:border-rose-400 shadow-sm transition-all"
+              title="Return to Admin Command Center"
             >
-              <Shield className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
-              <span>Admin</span>
+              <Shield className="w-3.5 h-3.5 text-rose-500" />
+              <span>Command Center</span>
             </Link>
           )}
 
@@ -201,11 +202,21 @@ export const Navbar: React.FC = () => {
               </button>
             </div>
           ) : (
-            <Link href="/login">
-              <Button variant="secondary" size="sm" className="gap-1.5 text-xs font-medium">
-                <LogIn className="w-3.5 h-3.5" /> Sign In
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link
+                href="/admin/login"
+                className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-rose-600 dark:text-rose-400/90 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-500/10 rounded-lg border border-transparent hover:border-rose-500/20 transition-all"
+                title="Admin Command Center Gateway"
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>Admin</span>
+              </Link>
+              <Link href="/login">
+                <Button variant="secondary" size="sm" className="gap-1.5 text-xs font-medium">
+                  <LogIn className="w-3.5 h-3.5" /> Sign In
+                </Button>
+              </Link>
+            </div>
           )}
         </div>
       </div>
