@@ -3,9 +3,10 @@ import cors from 'cors';
 import path from 'path';
 import dotenv from 'dotenv';
 
-// Load environment variables from repo root or local .env
+// Load environment variables from repo root, backend, frontend, or local .env
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
+dotenv.config({ path: path.resolve(__dirname, '../../frontend/.env') });
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 dotenv.config();
 
