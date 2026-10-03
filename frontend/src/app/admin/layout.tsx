@@ -21,18 +21,18 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
-import { AdminLoginGate } from '@/components/admin/AdminLoginGate';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
 
   const isAdmin =
-    user?.roles?.includes('ADMIN') ||
-    user?.roles?.includes('SUPER_ADMIN') ||
-    user?.roles?.includes('FINANCE') ||
-    user?.roles?.includes('MODERATOR');
+    Array.isArray(user?.roles) &&
+    (user.roles.includes('ADMIN') ||
+      user.roles.includes('SUPER_ADMIN') ||
+      user.roles.includes('FINANCE') ||
+      user.roles.includes('MODERATOR'));
 
   const navItems = [
     { name: 'Overview', href: '/admin', icon: LayoutDashboard },
@@ -46,12 +46,38 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: 'System Settings', href: '/admin/settings', icon: Settings },
   ];
 
+  // Route directly to /admin/login if not authenticated
+  useEffect(() => {
+    if (!isLoading && pathname !== '/admin/login' && (!user || !isAdmin)) {
+      router.replace(`/admin/login?redirect=${encodeURIComponent(pathname)}`);
+    }
+  }, [isLoading, user, isAdmin, pathname, router]);
+
   if (pathname === '/admin/login') {
     return <>{children}</>;
   }
 
+  // Prevent 1-tick flicker between AdminLoginGate and children during Auth hydration
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#06070B] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-500 rounded-full animate-spin" />
+          <span className="text-xs font-mono text-gray-400">Verifying administrator clearance...</span>
+        </div>
+      </div>
+    );
+  }
+
   if (!user || !isAdmin) {
-    return <AdminLoginGate />;
+    return (
+      <div className="min-h-screen bg-[#06070B] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-rose-500/30 border-t-rose-500 rounded-full animate-spin" />
+          <span className="text-xs font-mono text-gray-400">Redirecting to Administrator Gateway...</span>
+        </div>
+      </div>
+    );
   }
 
   return (

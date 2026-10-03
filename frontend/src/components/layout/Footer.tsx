@@ -88,7 +88,7 @@ export const Footer: React.FC = () => {
                 <li><Link href="/about" className="hover:text-amber-400 transition-colors">About</Link></li>
                 <li><Link href="/about#contact" className="hover:text-amber-400 transition-colors">Contact</Link></li>
                 <li><Link href="/about#careers" className="hover:text-amber-400 transition-colors">Careers</Link></li>
-                <li><Link href="/admin/login" className="hover:text-rose-400 transition-colors flex items-center gap-1"><Shield className="w-3 h-3 text-rose-400" /><span>Admin Portal</span></Link></li>
+                <li><Link href="/admin/login" prefetch={false} className="hover:text-rose-400 transition-colors flex items-center gap-1"><Shield className="w-3 h-3 text-rose-400" /><span>Admin Portal</span></Link></li>
               </ul>
             </div>
 
@@ -112,7 +112,7 @@ export const Footer: React.FC = () => {
               <span>·</span>
               <Link href="/privacy" className="hover:text-amber-400 transition-colors">Privacy Notice</Link>
               <span>·</span>
-              <Link href="/admin/login" className="hover:text-rose-400 transition-colors text-white/50">Admin Access</Link>
+              <Link href="/admin/login" prefetch={false} className="hover:text-rose-400 transition-colors text-white/50">Admin Access</Link>
             </div>
           </div>
         </div>
@@ -367,7 +367,7 @@ export const Footer: React.FC = () => {
                 </Link>
               </li>
               <li>
-                <Link href="/admin/login" className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors flex items-center gap-1.5 font-medium text-rose-500/90">
+                <Link href="/admin/login" prefetch={false} className="hover:text-rose-600 dark:hover:text-rose-400 transition-colors flex items-center gap-1.5 font-medium text-rose-500/90">
                   <Shield className="w-3.5 h-3.5 text-rose-500" />
                   <span>Admin Command Center</span>
                 </Link>
@@ -394,7 +394,7 @@ export const Footer: React.FC = () => {
             <span>•</span>
             <Link href="/privacy" className="hover:underline">Privacy</Link>
             <span>•</span>
-            <Link href="/admin/login" className="hover:underline text-rose-500/90 hover:text-rose-400 font-medium">Admin Portal</Link>
+            <Link href="/admin/login" prefetch={false} className="hover:underline text-rose-500/90 hover:text-rose-400 font-medium">Admin Portal</Link>
             <span>•</span>
             <span>© 2026 Talent5 Inc. All Rights Reserved.</span>
           </div>

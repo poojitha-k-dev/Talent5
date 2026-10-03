@@ -883,6 +883,7 @@ function LoginForm() {
           </div>
           <Link
             href="/admin/login"
+            prefetch={false}
             className="text-rose-400 hover:text-rose-300 font-semibold flex items-center gap-1 transition-colors"
           >
             <span>Command Center Gateway</span>

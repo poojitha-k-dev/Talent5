@@ -132,6 +132,7 @@ function LandingPage() {
           <div className="flex items-center gap-3">
             <Link
               href="/admin/login"
+              prefetch={false}
               className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 transition-all"
               title="Talent5 Admin Portal Gateway"
             >

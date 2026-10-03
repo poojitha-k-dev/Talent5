@@ -163,6 +163,7 @@ export const Navbar: React.FC = () => {
           {isAdmin && (
             <Link
               href="/admin"
+              prefetch={false}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-gradient-to-r from-rose-500/15 via-rose-500/20 to-amber-500/15 hover:from-rose-500/25 hover:to-amber-500/25 text-rose-600 dark:text-rose-300 border border-rose-500/30 hover:border-rose-400 shadow-sm transition-all"
               title="Return to Admin Command Center"
             >
@@ -205,6 +206,7 @@ export const Navbar: React.FC = () => {
             <div className="flex items-center gap-2">
               <Link
                 href="/admin/login"
+                prefetch={false}
                 className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-rose-600 dark:text-rose-400/90 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-500/10 rounded-lg border border-transparent hover:border-rose-500/20 transition-all"
                 title="Admin Command Center Gateway"
               >
