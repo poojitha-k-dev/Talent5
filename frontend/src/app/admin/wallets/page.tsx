@@ -14,6 +14,10 @@ import {
   X,
   CheckCircle2,
   DollarSign,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -57,6 +61,20 @@ export default function AdminWalletsPage() {
   const [rewardRules, setRewardRules] = useState<RewardRules | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+
+  const PAGE_SIZE = 15;
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(wallets.length / PAGE_SIZE));
+  const paginatedWallets = wallets.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+    setCurrentPage(newPage);
+  };
 
   // Modals
   const [selectedWallet, setSelectedWallet] = useState<CreatorWallet | null>(null);
@@ -367,7 +385,7 @@ export default function AdminWalletsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 text-xs text-gray-300">
-                {wallets.map((wallet) => (
+                {paginatedWallets.map((wallet) => (
                   <tr key={wallet.id} className="hover:bg-white/[0.01]">
                     <td className="py-3 px-4">
                       <div className="font-semibold text-white">{wallet.stageName}</div>
@@ -405,6 +423,109 @@ export default function AdminWalletsPage() {
             </table>
           </div>
         )}
+
+        {/* 15 Rows Pagination Footer */}
+        <div className="p-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <span className="font-medium">
+              Showing{' '}
+              <strong className="text-white">
+                {wallets.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}
+              </strong>{' '}
+              to{' '}
+              <strong className="text-white">
+                {Math.min(currentPage * PAGE_SIZE, wallets.length)}
+              </strong>{' '}
+              of{' '}
+              <strong className="text-white">{wallets.length}</strong> creator wallets
+            </span>
+            <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-white/10">
+              <span className="px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-rose-400 font-mono font-semibold text-[11px]">
+                15 rows per page
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <button
+              type="button"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+              className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+              title="First page"
+            >
+              <ChevronsLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+              title="Previous page"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <div className="flex items-center gap-1 mx-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => {
+                  if (totalPages <= 7) return true;
+                  if (p === 1 || p === totalPages) return true;
+                  if (Math.abs(p - currentPage) <= 1) return true;
+                  return false;
+                })
+                .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
+                    acc.push('...');
+                  }
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((item, idx) => {
+                  if (item === '...') {
+                    return (
+                      <span key={`ellipsis-${idx}`} className="px-1 text-gray-500 font-mono text-xs">
+                        ...
+                      </span>
+                    );
+                  }
+                  const p = item as number;
+                  const isActive = p === currentPage;
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => handlePageChange(p)}
+                      className={`w-7 h-7 rounded-lg font-bold font-mono text-xs transition-all ${
+                        isActive
+                          ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30 border border-rose-500'
+                          : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+            </div>
+            <button
+              type="button"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+              title="Next page"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+              className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+              title="Last page"
+            >
+              <ChevronsRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Adjust Balance Modal */}

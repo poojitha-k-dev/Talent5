@@ -133,13 +133,13 @@ export default function AdminCatalogPage() {
   };
 
   // Pagination states
+  const PAGE_SIZE = 15;
   const [page, setPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(25);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalCount, setTotalCount] = useState<number>(0);
 
   // Load Songs
-  const fetchSongs = async (targetPage = page, targetLimit = pageSize) => {
+  const fetchSongs = async (targetPage = page) => {
     const t = token;
     if (!t) {
       setLoading(false);
@@ -154,7 +154,7 @@ export default function AdminCatalogPage() {
       if (selectedGenre) params.append('genreId', selectedGenre);
       if (selectedStatus) params.append('status', selectedStatus);
       params.append('page', targetPage.toString());
-      params.append('limit', targetLimit.toString());
+      params.append('limit', PAGE_SIZE.toString());
 
       const res = await fetch(`/api/v1/admin/catalog/songs?${params.toString()}`, {
         headers: { Authorization: `Bearer ${t}` },
@@ -168,7 +168,7 @@ export default function AdminCatalogPage() {
           setTotalCount(data.data.pagination.total ?? data.data.songs.length);
         } else {
           setTotalCount(data.data.songs.length);
-          setTotalPages(Math.max(1, Math.ceil(data.data.songs.length / targetLimit)));
+          setTotalPages(Math.max(1, Math.ceil(data.data.songs.length / PAGE_SIZE)));
         }
       } else {
         setError(data.message || 'Failed to fetch catalog songs');
@@ -183,7 +183,7 @@ export default function AdminCatalogPage() {
   useEffect(() => {
     if (token) {
       fetchMetadata();
-      fetchSongs(1, pageSize);
+      fetchSongs(1);
     } else if (!authLoading) {
       setLoading(false);
     }
@@ -193,21 +193,15 @@ export default function AdminCatalogPage() {
   useEffect(() => {
     setPage(1);
     if (token) {
-      fetchSongs(1, pageSize);
+      fetchSongs(1);
     }
   }, [search, selectedLanguage, selectedGenre, selectedStatus]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages || newPage === page) return;
     setPage(newPage);
-    fetchSongs(newPage, pageSize);
+    fetchSongs(newPage);
     window.scrollTo({ top: 380, behavior: 'smooth' });
-  };
-
-  const handlePageSizeChange = (newSize: number) => {
-    setPageSize(newSize);
-    setPage(1);
-    fetchSongs(1, newSize);
   };
 
   // Audio preview handler
@@ -649,11 +643,11 @@ export default function AdminCatalogPage() {
               <span className="font-medium">
                 Showing{' '}
                 <strong className="text-white">
-                  {(page - 1) * pageSize + 1}
+                  {totalCount === 0 ? 0 : (page - 1) * PAGE_SIZE + 1}
                 </strong>{' '}
                 to{' '}
                 <strong className="text-white">
-                  {Math.min(page * pageSize, totalCount || songs.length)}
+                  {Math.min(page * PAGE_SIZE, totalCount || songs.length)}
                 </strong>{' '}
                 of{' '}
                 <strong className="text-white">
@@ -663,17 +657,9 @@ export default function AdminCatalogPage() {
               </span>
 
               <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-white/10">
-                <span className="text-gray-500 text-[11px] uppercase tracking-wider">Per Page:</span>
-                <select
-                  value={pageSize}
-                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                  className="bg-midnight-900 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-white focus:outline-none focus:border-rose-500 cursor-pointer hover:border-white/20 transition-colors font-mono"
-                >
-                  <option value={15}>15</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
+                <span className="px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-rose-400 font-mono font-semibold text-[11px]">
+                  15 rows per page
+                </span>
               </div>
             </div>
 

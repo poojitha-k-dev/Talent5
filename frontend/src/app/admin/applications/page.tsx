@@ -200,8 +200,8 @@ export default function AdminApplicationsPage() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Pagination State
+  const PAGE_SIZE = 15;
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(10);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalFiltered, setTotalFiltered] = useState<number>(0);
 
@@ -243,7 +243,7 @@ export default function AdminApplicationsPage() {
     setTimeout(() => setToast(null), 4500);
   };
 
-  const fetchApplications = async (targetPage = currentPage, targetLimit = pageSize) => {
+  const fetchApplications = async (targetPage = currentPage) => {
     setLoading(true);
     try {
       const url = new URL('/api/v1/admin/applications', window.location.origin);
@@ -253,7 +253,7 @@ export default function AdminApplicationsPage() {
       if (riskFilter !== 'ALL') url.searchParams.set('risk', riskFilter);
       if (search.trim()) url.searchParams.set('search', search.trim());
       url.searchParams.set('page', targetPage.toString());
-      url.searchParams.set('limit', targetLimit.toString());
+      url.searchParams.set('limit', PAGE_SIZE.toString());
 
       const res = await fetch(url.toString(), { headers: getAuthHeaders() });
       const json = await res.json();
@@ -267,7 +267,7 @@ export default function AdminApplicationsPage() {
           setTotalFiltered(json.pagination.total ?? json.data.length);
         } else {
           setTotalFiltered(json.data.length);
-          setTotalPages(Math.max(1, Math.ceil(json.data.length / targetLimit)));
+          setTotalPages(Math.max(1, Math.ceil(json.data.length / PAGE_SIZE)));
         }
       }
     } catch (err: any) {
@@ -281,20 +281,14 @@ export default function AdminApplicationsPage() {
   // Reset to page 1 on filter changes and refetch
   useEffect(() => {
     setCurrentPage(1);
-    fetchApplications(1, pageSize);
+    fetchApplications(1);
   }, [statusFilter, categoryFilter, intentFilter, riskFilter, search]);
 
   const handlePageChange = (newPage: number) => {
     if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
     setCurrentPage(newPage);
-    fetchApplications(newPage, pageSize);
+    fetchApplications(newPage);
     window.scrollTo({ top: 380, behavior: 'smooth' });
-  };
-
-  const handlePageSizeChange = (newSize: number) => {
-    setPageSize(newSize);
-    setCurrentPage(1);
-    fetchApplications(1, newSize);
   };
 
   // Audio player cleanup
@@ -1031,11 +1025,11 @@ export default function AdminApplicationsPage() {
               <span className="font-medium">
                 Showing{' '}
                 <strong className="text-white">
-                  {(currentPage - 1) * pageSize + 1}
+                  {totalFiltered === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}
                 </strong>{' '}
                 to{' '}
                 <strong className="text-white">
-                  {Math.min(currentPage * pageSize, totalFiltered || applications.length)}
+                  {Math.min(currentPage * PAGE_SIZE, totalFiltered || applications.length)}
                 </strong>{' '}
                 of{' '}
                 <strong className="text-white">
@@ -1045,17 +1039,9 @@ export default function AdminApplicationsPage() {
               </span>
 
               <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-white/10">
-                <span className="text-gray-500 text-[11px] uppercase tracking-wider">Per Page:</span>
-                <select
-                  value={pageSize}
-                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-                  className="bg-midnight-900 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-white focus:outline-none focus:border-rose-500 cursor-pointer hover:border-white/20 transition-colors font-mono"
-                >
-                  <option value={6}>6</option>
-                  <option value={10}>10</option>
-                  <option value={20}>20</option>
-                  <option value={50}>50</option>
-                </select>
+                <span className="px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-rose-400 font-mono font-semibold text-[11px]">
+                  15 rows per page
+                </span>
               </div>
             </div>
 

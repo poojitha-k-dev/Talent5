@@ -12,6 +12,10 @@ import {
   RefreshCw,
   Search,
   MinusCircle,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -50,6 +54,14 @@ export default function AdminFraudPage() {
   const [activeTab, setActiveTab] = useState<'EVENTS' | 'LIKES'>('EVENTS');
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [voiding, setVoiding] = useState(false);
+
+  const PAGE_SIZE = 15;
+  const [eventPage, setEventPage] = useState(1);
+  const [likePage, setLikePage] = useState(1);
+  const totalEventPages = Math.max(1, Math.ceil(events.length / PAGE_SIZE));
+  const totalLikePages = Math.max(1, Math.ceil(suspiciousLikes.length / PAGE_SIZE));
+  const paginatedEvents = events.slice((eventPage - 1) * PAGE_SIZE, eventPage * PAGE_SIZE);
+  const paginatedLikes = suspiciousLikes.slice((likePage - 1) * PAGE_SIZE, likePage * PAGE_SIZE);
 
   // Fraud deduction modal state
   const [showDeductModal, setShowDeductModal] = useState(false);
@@ -344,7 +356,7 @@ export default function AdminFraudPage() {
               No fraud events detected on the platform. All listener engagement is healthy.
             </div>
           ) : (
-            (events || []).map((ev) => (
+            (paginatedEvents || []).map((ev) => (
               <div
                 key={ev.id}
                 className="p-5 rounded-2xl bg-midnight-900/70 border border-white/5 hover:border-white/15 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
@@ -412,58 +424,166 @@ export default function AdminFraudPage() {
               </div>
             ))
           )}
+
+          {/* 15 Rows Pagination for Events */}
+          {(events || []).length > 0 && (
+            <div className="p-4 rounded-2xl bg-midnight-950/80 border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
+              <div className="flex items-center gap-3">
+                <span>
+                  Showing <strong className="text-white">{(eventPage - 1) * PAGE_SIZE + 1}</strong> to{' '}
+                  <strong className="text-white">{Math.min(eventPage * PAGE_SIZE, events.length)}</strong> of{' '}
+                  <strong className="text-white">{events.length}</strong> events
+                </span>
+                <span className="px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-rose-400 font-mono text-[11px] font-semibold">
+                  15 rows per page
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setEventPage(1)}
+                  disabled={eventPage === 1}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300"
+                >
+                  <ChevronsLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEventPage((p) => Math.max(1, p - 1))}
+                  disabled={eventPage === 1}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="px-2 text-xs font-mono text-gray-300">
+                  {eventPage} / {totalEventPages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEventPage((p) => Math.min(totalEventPages, p + 1))}
+                  disabled={eventPage === totalEventPages}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEventPage(totalEventPages)}
+                  disabled={eventPage === totalEventPages}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300"
+                >
+                  <ChevronsRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* Suspicious Likes View */}
       {activeTab === 'LIKES' && (
-        <div className="rounded-2xl bg-midnight-900/60 border border-white/5 overflow-hidden backdrop-blur-md">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-midnight-950/80 border-b border-white/5 text-[11px] uppercase tracking-wider text-gray-400 font-medium">
-                <tr>
-                  <th className="py-3 px-4">User</th>
-                  <th className="py-3 px-4">Target Type</th>
-                  <th className="py-3 px-4">IP Hash & Fingerprint</th>
-                  <th className="py-3 px-4">User Agent</th>
-                  <th className="py-3 px-4">Risk</th>
-                  <th className="py-3 px-4">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-white/5">
-                {(suspiciousLikes || []).length === 0 ? (
+        <div className="space-y-4">
+          <div className="rounded-2xl bg-midnight-900/60 border border-white/5 overflow-hidden backdrop-blur-md">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="bg-midnight-950/80 border-b border-white/5 text-[11px] uppercase tracking-wider text-gray-400 font-medium">
                   <tr>
-                    <td colSpan={6} className="py-8 text-center text-gray-500">
-                      No suspicious likes currently queued.
-                    </td>
+                    <th className="py-3 px-4">User</th>
+                    <th className="py-3 px-4">Target Type</th>
+                    <th className="py-3 px-4">IP Hash & Fingerprint</th>
+                    <th className="py-3 px-4">User Agent</th>
+                    <th className="py-3 px-4">Risk</th>
+                    <th className="py-3 px-4">Status</th>
                   </tr>
-                ) : (
-                  (suspiciousLikes || []).map((like) => (
-                    <tr key={like.id} className="hover:bg-white/[0.02]">
-                      <td className="py-3 px-4">
-                        <div className="text-white font-medium">{like.userEmail}</div>
-                        <div className="text-[10px] text-gray-400 font-mono">@{like.username}</div>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {(suspiciousLikes || []).length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-gray-500">
+                        No suspicious likes currently queued.
                       </td>
-                      <td className="py-3 px-4 font-mono text-gray-300">{like.targetType}</td>
-                      <td className="py-3 px-4 font-mono text-[11px] text-gray-400">
-                        <div>IP: {like.ipHash || 'N/A'}</div>
-                        <div>FP: {like.deviceFingerprint || 'N/A'}</div>
-                      </td>
-                      <td className="py-3 px-4 text-gray-400 truncate max-w-xs text-[11px]">
-                        {like.userAgent || 'Unknown'}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/20 text-rose-300">
-                          {like.riskScore}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 font-bold text-amber-400">{like.status}</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    (paginatedLikes || []).map((like) => (
+                      <tr key={like.id} className="hover:bg-white/[0.02]">
+                        <td className="py-3 px-4">
+                          <div className="text-white font-medium">{like.userEmail}</div>
+                          <div className="text-[10px] text-gray-400 font-mono">@{like.username}</div>
+                        </td>
+                        <td className="py-3 px-4 font-mono text-gray-300">{like.targetType}</td>
+                        <td className="py-3 px-4 font-mono text-[11px] text-gray-400">
+                          <div>IP: {like.ipHash || 'N/A'}</div>
+                          <div>FP: {like.deviceFingerprint || 'N/A'}</div>
+                        </td>
+                        <td className="py-3 px-4 text-gray-400 truncate max-w-xs text-[11px]">
+                          {like.userAgent || 'Unknown'}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-rose-500/20 text-rose-300">
+                            {like.riskScore}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 font-bold text-amber-400">{like.status}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
+
+          {/* 15 Rows Pagination for Likes */}
+          {(suspiciousLikes || []).length > 0 && (
+            <div className="p-4 rounded-2xl bg-midnight-950/80 border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
+              <div className="flex items-center gap-3">
+                <span>
+                  Showing <strong className="text-white">{(likePage - 1) * PAGE_SIZE + 1}</strong> to{' '}
+                  <strong className="text-white">{Math.min(likePage * PAGE_SIZE, suspiciousLikes.length)}</strong> of{' '}
+                  <strong className="text-white">{suspiciousLikes.length}</strong> items
+                </span>
+                <span className="px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-rose-400 font-mono text-[11px] font-semibold">
+                  15 rows per page
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setLikePage(1)}
+                  disabled={likePage === 1}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300"
+                >
+                  <ChevronsLeft className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLikePage((p) => Math.max(1, p - 1))}
+                  disabled={likePage === 1}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300"
+                >
+                  <ChevronLeft className="w-3.5 h-3.5" />
+                </button>
+                <span className="px-2 text-xs font-mono text-gray-300">
+                  {likePage} / {totalLikePages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setLikePage((p) => Math.min(totalLikePages, p + 1))}
+                  disabled={likePage === totalLikePages}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300"
+                >
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLikePage(totalLikePages)}
+                  disabled={likePage === totalLikePages}
+                  className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300"
+                >
+                  <ChevronsRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

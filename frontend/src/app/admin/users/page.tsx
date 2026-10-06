@@ -30,6 +30,10 @@ import {
   ShieldAlert,
   ArrowRight,
   Loader2,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -495,6 +499,21 @@ export default function AdminUsersPage() {
     return true;
   });
 
+  const PAGE_SIZE = 15;
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
+  const paginatedUsers = filteredUsers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [roleFilter, statusFilter, verifiedFilter, search]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+    setCurrentPage(newPage);
+    window.scrollTo({ top: 400, behavior: 'smooth' });
+  };
+
   return (
     <div className="space-y-8">
       {/* Page Header */}
@@ -836,8 +855,8 @@ export default function AdminUsersPage() {
                     </div>
                   </td>
                 </tr>
-              ) : filteredUsers.length > 0 ? (
-                filteredUsers.map((item) => {
+              ) : paginatedUsers.length > 0 ? (
+                paginatedUsers.map((item) => {
                   const isCreator = item.isCreator || item.roles.includes('CREATOR');
                   const isAdmin = item.roles.some((r) => ['ADMIN', 'SUPER_ADMIN', 'FINANCE', 'MODERATOR'].includes(r));
                   const initials = item.fullName
@@ -1063,18 +1082,106 @@ export default function AdminUsersPage() {
           </table>
         </div>
 
-        {/* Table Footer */}
-        <div className="p-4 border-t border-white/5 flex items-center justify-between text-xs text-gray-400">
-          <p className="text-[11px]">
-            Showing <strong className="text-white">{filteredUsers.length}</strong> {roleFilter === 'ADMIN' ? 'administrative staff accounts' : roleFilter === 'USERS' ? 'normal website users' : 'registered platform accounts'}
-          </p>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/admin"
-              className="text-xs text-gray-400 hover:text-white transition-colors"
+        {/* Table Footer with Pagination */}
+        <div className="p-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-gray-400">
+          <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+            <span className="font-medium">
+              Showing{' '}
+              <strong className="text-white">
+                {filteredUsers.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1}
+              </strong>{' '}
+              to{' '}
+              <strong className="text-white">
+                {Math.min(currentPage * PAGE_SIZE, filteredUsers.length)}
+              </strong>{' '}
+              of{' '}
+              <strong className="text-white">{filteredUsers.length}</strong> accounts
+            </span>
+            <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-white/10">
+              <span className="px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-rose-400 font-mono font-semibold text-[11px]">
+                15 rows per page
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            <button
+              type="button"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+              className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+              title="First page"
             >
-              ← Back to Overview
-            </Link>
+              <ChevronsLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+              title="Previous page"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <div className="flex items-center gap-1 mx-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1)
+                .filter((p) => {
+                  if (totalPages <= 7) return true;
+                  if (p === 1 || p === totalPages) return true;
+                  if (Math.abs(p - currentPage) <= 1) return true;
+                  return false;
+                })
+                .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                  if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
+                    acc.push('...');
+                  }
+                  acc.push(p);
+                  return acc;
+                }, [])
+                .map((item, idx) => {
+                  if (item === '...') {
+                    return (
+                      <span key={`ellipsis-${idx}`} className="px-1 text-gray-500 font-mono text-xs">
+                        ...
+                      </span>
+                    );
+                  }
+                  const p = item as number;
+                  const isActive = p === currentPage;
+                  return (
+                    <button
+                      key={p}
+                      type="button"
+                      onClick={() => handlePageChange(p)}
+                      className={`w-7 h-7 rounded-lg font-bold font-mono text-xs transition-all ${
+                        isActive
+                          ? 'bg-rose-600 text-white shadow-md shadow-rose-600/30 border border-rose-500'
+                          : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+            </div>
+            <button
+              type="button"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+              title="Next page"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+              className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+              title="Last page"
+            >
+              <ChevronsRight className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       </div>
