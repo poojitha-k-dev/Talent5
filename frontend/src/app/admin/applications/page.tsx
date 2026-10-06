@@ -36,6 +36,10 @@ import {
   AlertTriangle,
   ChevronDown,
   SlidersHorizontal,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -195,12 +199,19 @@ export default function AdminApplicationsPage() {
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalFiltered, setTotalFiltered] = useState<number>(0);
+
   const handleResetFilters = () => {
     setStatusFilter('ALL');
     setCategoryFilter('ALL');
     setIntentFilter('ALL');
     setRiskFilter('ALL');
     setSearch('');
+    setCurrentPage(1);
   };
 
   const hasActiveFilters =
@@ -220,7 +231,7 @@ export default function AdminApplicationsPage() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const getAuthHeaders = () => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('talent5_token') : null;
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('talent5_token') || localStorage.getItem('token')) : null;
     return {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -232,7 +243,7 @@ export default function AdminApplicationsPage() {
     setTimeout(() => setToast(null), 4500);
   };
 
-  const fetchApplications = async () => {
+  const fetchApplications = async (targetPage = currentPage, targetLimit = pageSize) => {
     setLoading(true);
     try {
       const url = new URL('/api/v1/admin/applications', window.location.origin);
@@ -241,6 +252,8 @@ export default function AdminApplicationsPage() {
       if (intentFilter !== 'ALL') url.searchParams.set('intent', intentFilter);
       if (riskFilter !== 'ALL') url.searchParams.set('risk', riskFilter);
       if (search.trim()) url.searchParams.set('search', search.trim());
+      url.searchParams.set('page', targetPage.toString());
+      url.searchParams.set('limit', targetLimit.toString());
 
       const res = await fetch(url.toString(), { headers: getAuthHeaders() });
       const json = await res.json();
@@ -248,6 +261,13 @@ export default function AdminApplicationsPage() {
         setApplications(json.data);
         if (json.counts) {
           setCounts(json.counts);
+        }
+        if (json.pagination) {
+          setTotalPages(json.pagination.totalPages || 1);
+          setTotalFiltered(json.pagination.total ?? json.data.length);
+        } else {
+          setTotalFiltered(json.data.length);
+          setTotalPages(Math.max(1, Math.ceil(json.data.length / targetLimit)));
         }
       }
     } catch (err: any) {
@@ -258,9 +278,24 @@ export default function AdminApplicationsPage() {
     }
   };
 
+  // Reset to page 1 on filter changes and refetch
   useEffect(() => {
-    fetchApplications();
+    setCurrentPage(1);
+    fetchApplications(1, pageSize);
   }, [statusFilter, categoryFilter, intentFilter, riskFilter, search]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === currentPage) return;
+    setCurrentPage(newPage);
+    fetchApplications(newPage, pageSize);
+    window.scrollTo({ top: 380, behavior: 'smooth' });
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setCurrentPage(1);
+    fetchApplications(1, newSize);
+  };
 
   // Audio player cleanup
   useEffect(() => {
@@ -507,9 +542,14 @@ export default function AdminApplicationsPage() {
           <div className="flex items-center gap-3 justify-between sm:justify-end">
             <div className="text-xs text-gray-400 font-medium">
               Showing <span className="text-white font-bold">{applications.length}</span>
-              {counts.total > 0 && (
-                <> of <span className="text-white font-bold">{counts.total}</span></>
+              {(totalFiltered || counts.total) > 0 && (
+                <> of <span className="text-white font-bold">{totalFiltered || counts.total}</span></>
               )} auditions
+              {totalPages > 1 && (
+                <span className="text-rose-400 font-mono ml-1 font-semibold">
+                  (Page {currentPage} of {totalPages})
+                </span>
+              )}
             </div>
             {hasActiveFilters && (
               <button
@@ -766,8 +806,9 @@ export default function AdminApplicationsPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {applications.map((app) => {
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {applications.map((app) => {
             const safetyScore = app.aiSafetyScore ?? app.aiModerationReport?.safetyScore ?? 96;
             const isScanning = scanningId === app.id;
             const isVocal = app.creationIntent === 'VOCAL_SHOWCASE';
@@ -981,6 +1022,133 @@ export default function AdminApplicationsPage() {
               </div>
             );
           })}
+          </div>
+
+          {/* Pagination Toolbar */}
+          <div className="p-4 sm:p-5 rounded-3xl bg-midnight-950/80 border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl backdrop-blur-sm text-xs">
+            {/* Left: Summary and Page Size */}
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-gray-400">
+              <span className="font-medium">
+                Showing{' '}
+                <strong className="text-white">
+                  {(currentPage - 1) * pageSize + 1}
+                </strong>{' '}
+                to{' '}
+                <strong className="text-white">
+                  {Math.min(currentPage * pageSize, totalFiltered || applications.length)}
+                </strong>{' '}
+                of{' '}
+                <strong className="text-white">
+                  {totalFiltered || counts.total || applications.length}
+                </strong>{' '}
+                auditions
+              </span>
+
+              <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-white/10">
+                <span className="text-gray-500 text-[11px] uppercase tracking-wider">Per Page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  className="bg-midnight-900 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-white focus:outline-none focus:border-rose-500 cursor-pointer hover:border-white/20 transition-colors font-mono"
+                >
+                  <option value={6}>6</option>
+                  <option value={10}>10</option>
+                  <option value={20}>20</option>
+                  <option value={50}>50</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Right: Navigation Controls */}
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              {/* First Page */}
+              <button
+                type="button"
+                onClick={() => handlePageChange(1)}
+                disabled={currentPage === 1}
+                className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+                title="First page"
+              >
+                <ChevronsLeft className="w-4 h-4" />
+              </button>
+
+              {/* Prev Page */}
+              <button
+                type="button"
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+                title="Previous page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {/* Page Number Pills */}
+              <div className="flex items-center gap-1 mx-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => {
+                    if (totalPages <= 7) return true;
+                    if (p === 1 || p === totalPages) return true;
+                    if (Math.abs(p - currentPage) <= 1) return true;
+                    return false;
+                  })
+                  .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
+                      acc.push('...');
+                    }
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, idx) => {
+                    if (item === '...') {
+                      return (
+                        <span key={`ellipsis-${idx}`} className="px-2 text-gray-500 font-mono">
+                          ...
+                        </span>
+                      );
+                    }
+                    const p = item as number;
+                    const isActive = p === currentPage;
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => handlePageChange(p)}
+                        className={`w-8 h-8 rounded-xl font-bold font-mono text-xs transition-all ${
+                          isActive
+                            ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30 border border-rose-500'
+                            : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
+              </div>
+
+              {/* Next Page */}
+              <button
+                type="button"
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+                title="Next page"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+
+              {/* Last Page */}
+              <button
+                type="button"
+                onClick={() => handlePageChange(totalPages)}
+                disabled={currentPage === totalPages}
+                className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+                title="Last page"
+              >
+                <ChevronsRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

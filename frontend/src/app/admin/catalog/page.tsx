@@ -20,6 +20,10 @@ import {
   Languages,
   Mic2,
   Disc,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -128,8 +132,14 @@ export default function AdminCatalogPage() {
     }
   };
 
+  // Pagination states
+  const [page, setPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(25);
+  const [totalPages, setTotalPages] = useState<number>(1);
+  const [totalCount, setTotalCount] = useState<number>(0);
+
   // Load Songs
-  const fetchSongs = async () => {
+  const fetchSongs = async (targetPage = page, targetLimit = pageSize) => {
     const t = token;
     if (!t) {
       setLoading(false);
@@ -143,7 +153,8 @@ export default function AdminCatalogPage() {
       if (selectedLanguage) params.append('languageId', selectedLanguage);
       if (selectedGenre) params.append('genreId', selectedGenre);
       if (selectedStatus) params.append('status', selectedStatus);
-      params.append('limit', '100');
+      params.append('page', targetPage.toString());
+      params.append('limit', targetLimit.toString());
 
       const res = await fetch(`/api/v1/admin/catalog/songs?${params.toString()}`, {
         headers: { Authorization: `Bearer ${t}` },
@@ -152,6 +163,13 @@ export default function AdminCatalogPage() {
       if (data.success) {
         setSongs(data.data.songs);
         setStats(data.data.stats);
+        if (data.data.pagination) {
+          setTotalPages(data.data.pagination.totalPages || 1);
+          setTotalCount(data.data.pagination.total ?? data.data.songs.length);
+        } else {
+          setTotalCount(data.data.songs.length);
+          setTotalPages(Math.max(1, Math.ceil(data.data.songs.length / targetLimit)));
+        }
       } else {
         setError(data.message || 'Failed to fetch catalog songs');
       }
@@ -165,11 +183,32 @@ export default function AdminCatalogPage() {
   useEffect(() => {
     if (token) {
       fetchMetadata();
-      fetchSongs();
+      fetchSongs(1, pageSize);
     } else if (!authLoading) {
       setLoading(false);
     }
   }, [token, authLoading]);
+
+  // Reset to page 1 on filter changes
+  useEffect(() => {
+    setPage(1);
+    if (token) {
+      fetchSongs(1, pageSize);
+    }
+  }, [search, selectedLanguage, selectedGenre, selectedStatus]);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === page) return;
+    setPage(newPage);
+    fetchSongs(newPage, pageSize);
+    window.scrollTo({ top: 380, behavior: 'smooth' });
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setPage(1);
+    fetchSongs(1, newSize);
+  };
 
   // Audio preview handler
   const handleTogglePlay = (song: SongItem) => {
@@ -466,8 +505,9 @@ export default function AdminCatalogPage() {
             No catalog tracks matching current filter query.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <div className="space-y-4">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-white/5 text-[10px] font-mono uppercase tracking-wider text-gray-400 bg-midnight-950/50">
                   <th className="py-3 px-4">Track</th>
@@ -601,7 +641,134 @@ export default function AdminCatalogPage() {
               </tbody>
             </table>
           </div>
-        )}
+
+          {/* Pagination Toolbar */}
+          <div className="p-4 sm:p-5 rounded-2xl bg-midnight-950/80 border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 shadow-xl backdrop-blur-sm text-xs">
+            {/* Left: Summary and Page Size */}
+            <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-gray-400">
+              <span className="font-medium">
+                Showing{' '}
+                <strong className="text-white">
+                  {(page - 1) * pageSize + 1}
+                </strong>{' '}
+                to{' '}
+                <strong className="text-white">
+                  {Math.min(page * pageSize, totalCount || songs.length)}
+                </strong>{' '}
+                of{' '}
+                <strong className="text-white">
+                  {totalCount || stats?.totalSongs || songs.length}
+                </strong>{' '}
+                tracks
+              </span>
+
+              <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-white/10">
+                <span className="text-gray-500 text-[11px] uppercase tracking-wider">Per Page:</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+                  className="bg-midnight-900 border border-white/10 rounded-xl px-2.5 py-1 text-xs text-white focus:outline-none focus:border-rose-500 cursor-pointer hover:border-white/20 transition-colors font-mono"
+                >
+                  <option value={15}>15</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Right: Navigation Controls */}
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              {/* First Page */}
+              <button
+                type="button"
+                onClick={() => handlePageChange(1)}
+                disabled={page === 1}
+                className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+                title="First page"
+              >
+                <ChevronsLeft className="w-4 h-4" />
+              </button>
+
+              {/* Prev Page */}
+              <button
+                type="button"
+                onClick={() => handlePageChange(page - 1)}
+                disabled={page === 1}
+                className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+                title="Previous page"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              {/* Page Number Pills */}
+              <div className="flex items-center gap-1 mx-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((p) => {
+                    if (totalPages <= 7) return true;
+                    if (p === 1 || p === totalPages) return true;
+                    if (Math.abs(p - page) <= 1) return true;
+                    return false;
+                  })
+                  .reduce<(number | string)[]>((acc, p, idx, arr) => {
+                    if (idx > 0 && p - (arr[idx - 1] as number) > 1) {
+                      acc.push('...');
+                    }
+                    acc.push(p);
+                    return acc;
+                  }, [])
+                  .map((item, idx) => {
+                    if (item === '...') {
+                      return (
+                        <span key={`ellipsis-${idx}`} className="px-2 text-gray-500 font-mono">
+                          ...
+                        </span>
+                      );
+                    }
+                    const p = item as number;
+                    const isActive = p === page;
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => handlePageChange(p)}
+                        className={`w-8 h-8 rounded-xl font-bold font-mono text-xs transition-all ${
+                          isActive
+                            ? 'bg-rose-600 text-white shadow-lg shadow-rose-600/30 border border-rose-500'
+                            : 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10 border border-white/5'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    );
+                  })}
+              </div>
+
+              {/* Next Page */}
+              <button
+                type="button"
+                onClick={() => handlePageChange(page + 1)}
+                disabled={page === totalPages}
+                className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+                title="Next page"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+
+              {/* Last Page */}
+              <button
+                type="button"
+                onClick={() => handlePageChange(totalPages)}
+                disabled={page === totalPages}
+                className="p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 disabled:opacity-30 disabled:pointer-events-none text-gray-300 hover:text-white transition-all"
+                title="Last page"
+              >
+                <ChevronsRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
 
       {/* Edit Song Modal Drawer */}

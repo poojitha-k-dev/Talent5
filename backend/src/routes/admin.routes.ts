@@ -817,7 +817,47 @@ router.get('/audit-logs', async (_req: Request, res: Response) => {
 router.get('/applications', async (req: Request, res: Response) => {
   try {
     const { status, category, search, risk } = req.query;
-    let sql = `
+    const conditions: string[] = ['1=1'];
+    const params: any[] = [];
+
+    if (status && status !== 'ALL') {
+      params.push(status);
+      conditions.push(`ca.status = $${params.length}`);
+    }
+    if (category && category !== 'ALL') {
+      params.push(category);
+      conditions.push(`ca.category = $${params.length}`);
+    }
+    const intent = typeof req.query.intent === 'string' ? req.query.intent.toUpperCase() : 'ALL';
+    if (intent && intent !== 'ALL') {
+      params.push(intent);
+      conditions.push(`ca.creation_intent = $${params.length}`);
+    }
+    const riskLevel = typeof risk === 'string' ? risk.toUpperCase() : 'ALL';
+    if (riskLevel && riskLevel !== 'ALL') {
+      params.push(riskLevel);
+      conditions.push(`ca.plagiarism_risk_level = $${params.length}`);
+    }
+    if (search && String(search).trim()) {
+      params.push(`%${String(search).trim()}%`);
+      conditions.push(`(ca.stage_name ILIKE $${params.length} OR ca.full_name ILIKE $${params.length} OR ca.city ILIKE $${params.length} OR ca.matched_song_title ILIKE $${params.length})`);
+    }
+
+    const whereClause = 'WHERE ' + conditions.join(' AND ');
+
+    const page = Math.max(parseInt((req.query.page as string) || '1', 10), 1);
+    const limit = Math.min(Math.max(parseInt((req.query.limit as string) || '10', 10), 1), 100);
+    const offset = (page - 1) * limit;
+
+    const countSql = `
+      SELECT COUNT(*)::int as total
+      FROM creator_applications ca
+      LEFT JOIN users u ON ca.user_id = u.id
+      ${whereClause}
+    `;
+
+    const listParams = [...params, limit, offset];
+    const listSql = `
       SELECT 
         ca.id,
         ca.user_id as "userId",
@@ -854,35 +894,14 @@ router.get('/applications', async (req: Request, res: Response) => {
         u.phone as "userPhone"
       FROM creator_applications ca
       LEFT JOIN users u ON ca.user_id = u.id
-      WHERE 1=1
+      ${whereClause}
+      ORDER BY ca.created_at DESC
+      LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `;
-    const params: any[] = [];
-    if (status && status !== 'ALL') {
-      params.push(status);
-      sql += ` AND ca.status = $${params.length}`;
-    }
-    if (category && category !== 'ALL') {
-      params.push(category);
-      sql += ` AND ca.category = $${params.length}`;
-    }
-    const intent = typeof req.query.intent === 'string' ? req.query.intent.toUpperCase() : 'ALL';
-    if (intent && intent !== 'ALL') {
-      params.push(intent);
-      sql += ` AND ca.creation_intent = $${params.length}`;
-    }
-    const riskLevel = typeof risk === 'string' ? risk.toUpperCase() : 'ALL';
-    if (riskLevel && riskLevel !== 'ALL') {
-      params.push(riskLevel);
-      sql += ` AND ca.plagiarism_risk_level = $${params.length}`;
-    }
-    if (search && String(search).trim()) {
-      params.push(`%${String(search).trim()}%`);
-      sql += ` AND (ca.stage_name ILIKE $${params.length} OR ca.full_name ILIKE $${params.length} OR ca.city ILIKE $${params.length} OR ca.matched_song_title ILIKE $${params.length})`;
-    }
-    sql += ` ORDER BY ca.created_at DESC LIMIT 100`;
 
-    const [r, countsRes] = await Promise.all([
-      query(sql, params),
+    const [listRes, countRes, countsRes] = await Promise.all([
+      query(listSql, listParams),
+      query(countSql, params),
       query(`
         SELECT 
           COUNT(*)::int as total,
@@ -897,6 +916,7 @@ router.get('/applications', async (req: Request, res: Response) => {
       `).catch(() => ({ rows: [{ total: 0, pending: 0, under_review: 0, approved: 0, rejected: 0, original_creation: 0, vocal_showcase: 0, high_plagiarism: 0 }] })),
     ]);
 
+    const filteredTotal = parseInt(countRes.rows[0]?.total || '0', 10);
     const countsRow = countsRes.rows[0] || {};
     const counts = {
       total: Number(countsRow.total || 0),
@@ -909,7 +929,17 @@ router.get('/applications', async (req: Request, res: Response) => {
       highPlagiarism: Number(countsRow.high_plagiarism || 0),
     };
 
-    return res.status(200).json({ success: true, data: r.rows, counts });
+    return res.status(200).json({
+      success: true,
+      data: listRes.rows,
+      counts,
+      pagination: {
+        page,
+        limit,
+        total: filteredTotal,
+        totalPages: Math.max(1, Math.ceil(filteredTotal / limit)),
+      },
+    });
   } catch (err: any) {
     return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
   }
