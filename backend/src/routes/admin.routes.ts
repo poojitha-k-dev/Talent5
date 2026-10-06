@@ -846,7 +846,7 @@ router.get('/applications', async (req: Request, res: Response) => {
     const whereClause = 'WHERE ' + conditions.join(' AND ');
 
     const page = Math.max(parseInt((req.query.page as string) || '1', 10), 1);
-    const limit = Math.min(Math.max(parseInt((req.query.limit as string) || '15', 10), 1), 100);
+    const limit = Math.min(Math.max(parseInt((req.query.limit as string) || '10', 10), 1), 100);
     const offset = (page - 1) * limit;
 
     const countSql = `
@@ -1153,7 +1153,7 @@ router.get('/catalog/songs', async (req: Request, res: Response) => {
     const genreId = req.query.genreId ? parseInt(req.query.genreId as string, 10) : undefined;
     const status = typeof req.query.status === 'string' ? req.query.status : undefined;
     const page = Math.max(parseInt((req.query.page as string) || '1', 10), 1);
-    const limit = Math.min(parseInt((req.query.limit as string) || '15', 10), 200);
+    const limit = Math.min(parseInt((req.query.limit as string) || '10', 10), 200);
     const offset = (page - 1) * limit;
 
     const conditions: string[] = ['1=1'];

@@ -199,8 +199,8 @@ export default function AdminApplicationsPage() {
   const [scanningId, setScanningId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Pagination State
-  const PAGE_SIZE = 15;
+  // Pagination State (allow strictly 10 records per page)
+  const PAGE_SIZE = 10;
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [totalFiltered, setTotalFiltered] = useState<number>(0);
@@ -1040,7 +1040,7 @@ export default function AdminApplicationsPage() {
 
               <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-white/10">
                 <span className="px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-rose-400 font-mono font-semibold text-[11px]">
-                  15 rows per page
+                  10 records per page
                 </span>
               </div>
             </div>

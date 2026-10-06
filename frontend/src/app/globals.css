@@ -99,8 +99,8 @@ img {
 }
 
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -114,6 +114,32 @@ img {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--accent-saffron);
+}
+
+/* Explicit visible scrollbar for admin tables & views */
+.admin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(244, 63, 94, 0.55) #0b0d14;
+}
+
+.admin-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.admin-scrollbar::-webkit-scrollbar-track {
+  background: #0b0d14;
+  border-radius: 9999px;
+}
+
+.admin-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(244, 63, 94, 0.55);
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(244, 63, 94, 0.9);
 }
 
 /* Glassmorphism Panel (Optimized GPU transitions) */

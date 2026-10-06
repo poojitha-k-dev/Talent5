@@ -62,7 +62,7 @@ export default function AdminWalletsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  const PAGE_SIZE = 15;
+  const PAGE_SIZE = 10;
   const [currentPage, setCurrentPage] = useState(1);
   const totalPages = Math.max(1, Math.ceil(wallets.length / PAGE_SIZE));
   const paginatedWallets = wallets.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
@@ -372,7 +372,7 @@ export default function AdminWalletsPage() {
             Loading creator wallets...
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto admin-scrollbar">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-white/5 text-[10px] font-mono uppercase tracking-wider text-gray-400 bg-midnight-950/50">
@@ -441,7 +441,7 @@ export default function AdminWalletsPage() {
             </span>
             <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-white/10">
               <span className="px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 text-rose-400 font-mono font-semibold text-[11px]">
-                15 rows per page
+                10 records per page
               </span>
             </div>
           </div>

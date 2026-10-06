@@ -116,8 +116,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+    document.documentElement.classList.remove('light');
+    document.documentElement.setAttribute('data-theme', 'dark');
+    document.documentElement.style.colorScheme = 'dark';
+  }, []);
+
   return (
-    <div className="min-h-screen bg-midnight-950 flex flex-col">
+    <div className="min-h-screen bg-midnight-950 text-white flex flex-col w-full">
       {/* Admin Top Command Bar */}
       <header className="sticky top-0 z-50 h-14 bg-midnight-950/95 border-b border-rose-500/20 backdrop-blur-xl flex items-center justify-between px-4 sm:px-6">
         <div className="flex items-center gap-3">
@@ -155,9 +162,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </header>
 
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden min-h-[calc(100vh-3.5rem)]">
         {/* Admin Navigation Sidebar */}
-        <aside className="w-64 bg-midnight-900/60 border-r border-white/5 flex flex-col flex-shrink-0 overflow-y-auto">
+        <aside className="w-64 bg-midnight-900/60 border-r border-white/5 flex flex-col flex-shrink-0 overflow-y-auto admin-scrollbar">
           <div className="p-4 space-y-5">
             {navSections.map((section, sIdx) => (
               <div key={sIdx} className="space-y-1">
@@ -200,7 +207,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </aside>
 
         {/* Admin Main Canvas */}
-        <main className="flex-1 overflow-y-auto bg-midnight-950 p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto bg-midnight-950 p-6 md:p-8 admin-scrollbar">
           <div className="max-w-7xl mx-auto space-y-8">
             {children}
           </div>
