@@ -87,12 +87,34 @@ function SearchContent() {
         <Search className="w-5 h-5 text-amber-500 absolute left-4 top-3.5 pointer-events-none" />
         <input
           type="text"
-          placeholder="Search songs, artists, Desi creators, albums..."
+          placeholder="Search songs, artists, Desi creators, lyrics, albums..."
           value={query}
           onChange={(e) => handleSearchChange(e.target.value)}
           className="w-full pl-12 pr-4 py-3.5 bg-midnight-900/90 border border-white/15 rounded-full text-sm text-white placeholder-gray-500 shadow-card focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/30 transition-all"
           autoFocus
         />
+      </div>
+
+      {/* Mood & Vibe Quick Chips */}
+      <div className="max-w-3xl mx-auto flex items-center justify-center gap-2 overflow-x-auto pb-1 scrollbar-none flex-wrap">
+        {[
+          { label: 'Desi Street Hip-Hop', query: 'Gully To Gagan', icon: '🎤' },
+          { label: 'Punjabi Dhol Hype', query: 'Pind Di Beat', icon: '🥁' },
+          { label: 'Urban Punjabi', query: 'Aa Mahiya', icon: '🔥' },
+          { label: 'Bollywood Melody', query: 'Dil Me Chupi', icon: '✨' },
+          { label: 'Monsoon Soul', query: 'Baarish', icon: '🌧️' },
+          { label: 'Late Night Ghazal', query: 'Tum Bin', icon: '🌙' },
+        ].map((m) => (
+          <button
+            key={m.label}
+            type="button"
+            onClick={() => handleSearchChange(m.query)}
+            className="flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/5 hover:bg-amber-500/20 border border-white/10 hover:border-amber-500/40 text-xs text-gray-300 hover:text-amber-400 font-medium transition-all shadow-sm"
+          >
+            <span>{m.icon}</span>
+            <span>{m.label}</span>
+          </button>
+        ))}
       </div>
 
       {/* Popular Suggestions (When query is empty) */}

@@ -114,9 +114,9 @@ router.get('/songs/:idOrSlug', async (req: Request, res: Response) => {
     const queryText = `
       SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds",
              s.audio_url as "audioUrl", s.artwork_url as "artworkUrl",
-             s.lyrics_timed_data as "lyricsTimedData", s.raw_lyrics as "rawLyrics",
              s.release_date as "releaseDate", s.is_explicit as "isExplicit",
              s.play_count as "playCount", s.valid_likes_count as "validLikesCount",
+             s.raw_likes_count as "rawLikesCount",
              s.popularity_score as "popularityScore", s.mood,
              a.id as "artistId", a.name as "artistName", a.bio as "artistBio",
              a.avatar_url as "artistAvatarUrl", a.is_verified as "isArtistVerified",
@@ -132,14 +132,85 @@ router.get('/songs/:idOrSlug', async (req: Request, res: Response) => {
       LIMIT 1
     `;
 
-    const result = await query(queryText, [idOrSlug]);
+    const songRes = await query(queryText, [idOrSlug]);
 
-    if (result.rows.length === 0) {
+    if (songRes.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Song not found' });
     }
 
-    return res.status(200).json({ success: true, data: result.rows[0] });
+    const song = songRes.rows[0];
+
+    // Fetch synchronized lyrics
+    const lyricsRes = await query(
+      `SELECT l.id, l.song_id as "songId", l.language_id as "languageId",
+              l.is_synced as "isSynced", l.sync_status as "syncStatus",
+              l.version, l.full_text as "fullText"
+       FROM lyrics l
+       WHERE l.song_id = $1`,
+      [song.id]
+    );
+
+    let lyrics = null;
+    if (lyricsRes.rows.length > 0) {
+      const lyric = lyricsRes.rows[0];
+      const linesRes = await query(
+        `SELECT id, sequence_order as "sequenceOrder",
+                start_time_ms as "startTimeMs", end_time_ms as "endTimeMs",
+                text, COALESCE(words, '[]'::jsonb) as "words"
+         FROM lyric_lines
+         WHERE lyrics_id = $1
+         ORDER BY sequence_order ASC`,
+        [lyric.id]
+      );
+      lyrics = {
+        id: lyric.id,
+        isSynced: lyric.isSynced,
+        syncStatus: lyric.syncStatus,
+        fullText: lyric.fullText,
+        lines: linesRes.rows,
+      };
+    }
+
+    // Fetch rights record
+    const rightsRes = await query(
+      `SELECT id, rights_holder as "rightsHolder", ownership_type as "ownershipType", license_type as "licenseType", created_at as "createdAt"
+       FROM rights_records
+       WHERE song_id = $1
+       LIMIT 1`,
+      [song.id]
+    );
+
+    // Fetch recommendations
+    const recRes = await query(
+      `SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds",
+              s.audio_url as "audioUrl", s.artwork_url as "artworkUrl",
+              s.play_count as "playCount", s.valid_likes_count as "validLikesCount",
+              s.popularity_score as "popularityScore",
+              a.id as "artistId", a.name as "artistName", l.name as "languageName",
+              g.name as "genreName", g.slug as "genreSlug"
+       FROM songs s
+       JOIN artists a ON s.artist_id = a.id
+       JOIN languages l ON s.language_id = l.id
+       JOIN genres g ON s.genre_id = g.id
+       WHERE s.id != $1 AND s.status = 'PUBLISHED'
+       ORDER BY (s.genre_id = $2) DESC, s.popularity_score DESC
+       LIMIT 6`,
+      [song.id, song.genreId]
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        song,
+        lyrics,
+        rights: rightsRes.rows[0] || null,
+        comments: [],
+        recommended: recRes.rows,
+        recommendations: recRes.rows,
+      },
+    });
   } catch (error: any) {
+    console.error('Song by id error:', error);
     return res.status(500).json({ success: false, message: error.message });
   }
 });
@@ -195,6 +266,45 @@ router.get('/albums', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/v1/catalog/albums/:id
+router.get('/albums/:id', async (req: Request, res: Response) => {
+  try {
+    const albumRes = await query(
+      `SELECT al.id, al.title, al.cover_url as "coverUrl", al.release_date as "releaseDate",
+              al.type, a.id as "artistId", a.name as "artistName",
+              l.name as "languageName"
+       FROM albums al
+       JOIN artists a ON al.artist_id = a.id
+       LEFT JOIN languages l ON al.language_id = l.id
+       WHERE al.id = $1`,
+      [req.params.id]
+    );
+    if (albumRes.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Album not found' });
+    }
+    const tracksRes = await query(
+      `SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds",
+              s.audio_url as "audioUrl", s.artwork_url as "artworkUrl",
+              s.play_count as "playCount", s.valid_likes_count as "validLikesCount",
+              a.name as "artistName"
+       FROM songs s
+       JOIN artists a ON s.artist_id = a.id
+       WHERE s.album_id = $1 AND s.status = 'PUBLISHED'
+       ORDER BY s.created_at ASC`,
+      [req.params.id]
+    );
+    return res.status(200).json({
+      success: true,
+      data: {
+        album: albumRes.rows[0],
+        tracks: tracksRes.rows,
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
 // GET /api/v1/catalog/languages
 router.get('/languages', async (_req: Request, res: Response) => {
   try {
@@ -219,9 +329,9 @@ router.get('/genres', async (_req: Request, res: Response) => {
 router.get('/home', async (_req: Request, res: Response) => {
   try {
     const [trending, featured, newReleases, languages, genres] = await Promise.all([
-      query(`SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds", s.audio_url as "audioUrl", s.artwork_url as "artworkUrl", s.play_count as "playCount", s.valid_likes_count as "validLikesCount", a.id as "artistId", a.name as "artistName", l.name as "languageName" FROM songs s JOIN artists a ON s.artist_id = a.id JOIN languages l ON s.language_id = l.id WHERE s.status = 'PUBLISHED' ORDER BY s.popularity_score DESC LIMIT 12`),
-      query(`SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds", s.audio_url as "audioUrl", s.artwork_url as "artworkUrl", s.play_count as "playCount", s.valid_likes_count as "validLikesCount", a.id as "artistId", a.name as "artistName", l.name as "languageName" FROM songs s JOIN artists a ON s.artist_id = a.id JOIN languages l ON s.language_id = l.id WHERE s.status = 'PUBLISHED' ORDER BY s.valid_likes_count DESC LIMIT 12`),
-      query(`SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds", s.audio_url as "audioUrl", s.artwork_url as "artworkUrl", s.play_count as "playCount", s.valid_likes_count as "validLikesCount", a.id as "artistId", a.name as "artistName", l.name as "languageName" FROM songs s JOIN artists a ON s.artist_id = a.id JOIN languages l ON s.language_id = l.id WHERE s.status = 'PUBLISHED' ORDER BY s.release_date DESC LIMIT 12`),
+      query(`SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds", s.audio_url as "audioUrl", s.artwork_url as "artworkUrl", s.play_count as "playCount", s.valid_likes_count as "validLikesCount", s.popularity_score as "popularityScore", a.id as "artistId", a.name as "artistName", l.name as "languageName", g.name as "genreName", g.slug as "genreSlug" FROM songs s JOIN artists a ON s.artist_id = a.id JOIN languages l ON s.language_id = l.id JOIN genres g ON s.genre_id = g.id WHERE s.status = 'PUBLISHED' ORDER BY s.popularity_score DESC LIMIT 12`),
+      query(`SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds", s.audio_url as "audioUrl", s.artwork_url as "artworkUrl", s.play_count as "playCount", s.valid_likes_count as "validLikesCount", s.popularity_score as "popularityScore", a.id as "artistId", a.name as "artistName", l.name as "languageName", g.name as "genreName", g.slug as "genreSlug" FROM songs s JOIN artists a ON s.artist_id = a.id JOIN languages l ON s.language_id = l.id JOIN genres g ON s.genre_id = g.id WHERE s.status = 'PUBLISHED' ORDER BY s.valid_likes_count DESC LIMIT 12`),
+      query(`SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds", s.audio_url as "audioUrl", s.artwork_url as "artworkUrl", s.play_count as "playCount", s.valid_likes_count as "validLikesCount", s.popularity_score as "popularityScore", a.id as "artistId", a.name as "artistName", l.name as "languageName", g.name as "genreName", g.slug as "genreSlug" FROM songs s JOIN artists a ON s.artist_id = a.id JOIN languages l ON s.language_id = l.id JOIN genres g ON s.genre_id = g.id WHERE s.status = 'PUBLISHED' ORDER BY s.release_date DESC LIMIT 12`),
       query(`SELECT * FROM languages WHERE is_active = TRUE ORDER BY name ASC`),
       query(`SELECT * FROM genres ORDER BY name ASC`),
     ]);

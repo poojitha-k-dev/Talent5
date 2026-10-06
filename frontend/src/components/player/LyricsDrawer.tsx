@@ -249,9 +249,22 @@ export const LyricsDrawer: React.FC = () => {
               {/* Active current lyric or calm instrumental state */}
               {currentLine ? (
                 <div className="relative py-8 px-8 rounded-3xl bg-gradient-to-r from-amber-500/15 via-amber-500/25 to-amber-500/15 border-2 border-amber-400/40 shadow-[0_0_50px_rgba(245,158,11,0.3)] transform scale-105 transition-all">
-                  <div className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold font-display text-amber-300 drop-shadow-[0_2px_15px_rgba(245,158,11,0.5)] leading-tight">
-                    {currentLine.text}
-                  </div>
+                  {(() => {
+                    const lineDuration = Math.max(1, currentLine.endTimeMs - currentLine.startTimeMs);
+                    const progress = Math.min(1, Math.max(0, (currentMs - currentLine.startTimeMs) / lineDuration));
+                    return (
+                      <div
+                        className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-extrabold font-display leading-tight drop-shadow-[0_2px_15px_rgba(245,158,11,0.5)] transition-all"
+                        style={{
+                          background: `linear-gradient(to right, #F59E0B 0%, #FDE68A ${progress * 100}%, rgba(255,255,255,0.4) ${progress * 100}%, rgba(255,255,255,0.2) 100%)`,
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                        }}
+                      >
+                        {currentLine.text}
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : instrumentalStatus ? (
                 <div className="py-8 px-8 rounded-3xl bg-white/5 border border-white/10 transition-all">
@@ -288,21 +301,51 @@ export const LyricsDrawer: React.FC = () => {
           {currentLyricsLines.length > 0 ? (
             currentLyricsLines.map((line, idx) => {
               const isActive = isSynced && idx === activeLyricIndex && activeLyricIndex >= 0;
+              const isPassed = isSynced && idx < activeLyricIndex;
+              const lineDuration = Math.max(1, line.endTimeMs - line.startTimeMs);
+              const progress = isActive
+                ? Math.min(1, Math.max(0, (currentMs - line.startTimeMs) / lineDuration))
+                : isPassed
+                ? 1
+                : 0;
 
               return (
                 <div
                   key={line.id || idx}
                   ref={isActive ? activeLineRef : null}
                   onClick={() => isSynced && seek(line.startTimeMs / 1000)}
-                  className={`transition-all duration-300 px-6 py-3.5 rounded-2xl max-w-2xl w-full select-none text-center ${
+                  className={`transition-all duration-200 px-6 py-3.5 rounded-2xl max-w-2xl w-full select-none text-center ${
                     isSynced ? 'cursor-pointer' : 'cursor-default'
                   } ${
                     isActive
-                      ? 'text-amber-300 font-extrabold text-xl sm:text-2xl md:text-3xl scale-[1.03] bg-amber-500/20 border border-amber-500/40 shadow-[0_0_35px_rgba(245,158,11,0.3)]'
-                      : 'text-slate-300/85 hover:text-white hover:bg-white/5 font-medium text-base sm:text-xl md:text-2xl'
+                      ? 'scale-[1.03] bg-amber-500/20 border border-amber-500/40 shadow-[0_0_35px_rgba(245,158,11,0.3)]'
+                      : isPassed
+                      ? 'hover:bg-white/5 opacity-60'
+                      : 'hover:bg-white/5 opacity-40 hover:opacity-80'
                   }`}
                 >
-                  <span className="leading-relaxed">{line.text}</span>
+                  <span
+                    className={`leading-relaxed transition-all ${
+                      isActive
+                        ? 'font-extrabold text-xl sm:text-2xl md:text-3xl'
+                        : 'font-medium text-base sm:text-xl md:text-2xl text-slate-300'
+                    }`}
+                    style={
+                      isActive
+                        ? {
+                            background: `linear-gradient(to right, #F59E0B 0%, #FDE68A ${progress * 100}%, rgba(255, 255, 255, 0.35) ${progress * 100}%, rgba(255, 255, 255, 0.25) 100%)`,
+                            WebkitBackgroundClip: 'text',
+                            WebkitTextFillColor: 'transparent',
+                          }
+                        : isPassed
+                        ? {
+                            color: '#FCD34D',
+                          }
+                        : undefined
+                    }
+                  >
+                    {line.text}
+                  </span>
                 </div>
               );
             })

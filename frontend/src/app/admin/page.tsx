@@ -26,6 +26,13 @@ import {
   User,
   ShieldCheck,
   Calendar,
+  Music,
+  Mic2,
+  Trophy,
+  Wallet,
+  Flag,
+  Radio,
+  UserCog,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -347,6 +354,181 @@ export default function AdminOverviewPage() {
             Monitor catalog ownership across 5 license tiers, track expiration timelines, and enforce takedowns.
           </p>
         </Link>
+      </div>
+
+      {/* Sovereign Operations & Media Studios Grid */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+            <h2 className="text-sm font-bold font-display uppercase tracking-wider text-gray-300">
+              Sovereign Operations & Media Cockpits
+            </h2>
+          </div>
+          <span className="text-[11px] font-mono text-gray-500">8 Active Command Portals</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Link
+            href="/admin/catalog"
+            className="p-5 rounded-2xl bg-midnight-900/60 border border-white/5 hover:border-rose-500/40 transition-all group flex flex-col justify-between space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 group-hover:scale-110 transition-transform">
+                <Music className="w-4 h-4" />
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-white text-sm group-hover:text-rose-300 transition-colors">
+                Song Catalog & Streams
+              </h3>
+              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                Direct audio streaming, metadata CRUD, and emergency takedowns.
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/lyrics"
+            className="p-5 rounded-2xl bg-midnight-900/60 border border-white/5 hover:border-amber-500/40 transition-all group flex flex-col justify-between space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                <Mic2 className="w-4 h-4" />
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-white text-sm group-hover:text-amber-300 transition-colors">
+                Karaoke & Synced Lyrics
+              </h3>
+              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                Live playhead timing studio, native Indian language script alignments.
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/competitions"
+            className="p-5 rounded-2xl bg-midnight-900/60 border border-white/5 hover:border-amber-500/40 transition-all group flex flex-col justify-between space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 group-hover:scale-110 transition-transform">
+                <Trophy className="w-4 h-4" />
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-amber-400 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-white text-sm group-hover:text-amber-300 transition-colors">
+                Grand Challenges
+              </h3>
+              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                Music hunts, participant audition audit, bot voting penalty, and prize awards.
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/reports"
+            className="p-5 rounded-2xl bg-midnight-900/60 border border-white/5 hover:border-rose-500/40 transition-all group flex flex-col justify-between space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 group-hover:scale-110 transition-transform">
+                <Flag className="w-4 h-4" />
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-white text-sm group-hover:text-rose-300 transition-colors">
+                Community Reports & DMCA
+              </h3>
+              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                Flagged song takedowns, creator misconduct, and DMCA disputes.
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/wallets"
+            className="p-5 rounded-2xl bg-midnight-900/60 border border-white/5 hover:border-emerald-500/40 transition-all group flex flex-col justify-between space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                <Wallet className="w-4 h-4" />
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-emerald-400 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-white text-sm group-hover:text-emerald-300 transition-colors">
+                Creator Wallets & Economy
+              </h3>
+              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                Ledger overrides, promotional credits, fraud recovery, and dynamic rate tuning.
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/curation"
+            className="p-5 rounded-2xl bg-midnight-900/60 border border-white/5 hover:border-teal-500/40 transition-all group flex flex-col justify-between space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 group-hover:scale-110 transition-transform">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-teal-400 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-white text-sm group-hover:text-teal-300 transition-colors">
+                Homepage CMS & Playlists
+              </h3>
+              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                Official editorial playlists, spotlight releases, and hero featured songs.
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/broadcasts"
+            className="p-5 rounded-2xl bg-midnight-900/60 border border-white/5 hover:border-indigo-500/40 transition-all group flex flex-col justify-between space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform">
+                <Radio className="w-4 h-4" />
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-white text-sm group-hover:text-indigo-300 transition-colors">
+                Broadcast Announcements
+              </h3>
+              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                Dispatch platform-wide alerts, competition announcements, and notices.
+              </p>
+            </div>
+          </Link>
+
+          <Link
+            href="/admin/team"
+            className="p-5 rounded-2xl bg-midnight-900/60 border border-white/5 hover:border-rose-500/40 transition-all group flex flex-col justify-between space-y-3"
+          >
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 group-hover:scale-110 transition-transform">
+                <UserCog className="w-4 h-4" />
+              </div>
+              <ArrowRight className="w-3.5 h-3.5 text-gray-500 group-hover:text-rose-400 group-hover:translate-x-0.5 transition-all" />
+            </div>
+            <div>
+              <h3 className="font-display font-bold text-white text-sm group-hover:text-rose-300 transition-colors">
+                Staff RBAC & Delegation
+              </h3>
+              <p className="text-[11px] text-gray-400 mt-0.5 leading-relaxed">
+                Grant or revoke Super Admin, Moderator, Finance, and Content clearances.
+              </p>
+            </div>
+          </Link>
+        </div>
       </div>
 
       {/* Platform Registered Users & Signups Section */}

@@ -16,6 +16,7 @@ import {
   FileText,
   Heart,
   ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 import { useAudio } from '@/context/AudioContext';
 import { useAuth } from '@/context/AuthContext';
@@ -42,12 +43,51 @@ export const GlobalPlayer: React.FC = () => {
     toggleShuffle,
     toggleRepeat,
     setIsQueueOpen,
+    isLyricsOpen,
     setIsLyricsOpen,
+    currentLyricsLines,
+    activeLyricIndex,
+    currentLyricsSyncStatus,
   } = useAudio();
 
   const { user, token } = useAuth();
   const [isLiked, setIsLiked] = useState<boolean>(false);
   const [likeCount, setLikeCount] = useState<number>(0);
+
+  // Global Keyboard Shortcuts (Space: Play/Pause, L: Toggle Lyrics, M: Mute, Arrow Keys: Seek ±5s)
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.code === 'KeyL') {
+        e.preventDefault();
+        setIsLyricsOpen(!isLyricsOpen);
+      } else if (e.code === 'KeyM') {
+        e.preventDefault();
+        toggleMute();
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault();
+        seek(Math.min(duration || 100, currentTime + 5));
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault();
+        seek(Math.max(0, currentTime - 5));
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [togglePlay, isLyricsOpen, setIsLyricsOpen, toggleMute, seek, currentTime, duration]);
 
   // Sync like count when current song changes
   React.useEffect(() => {
@@ -224,6 +264,24 @@ export const GlobalPlayer: React.FC = () => {
                 )}
               </button>
             </div>
+
+            {/* Live Synchronized Lyric Pill */}
+            {currentLyricsSyncStatus === 'SYNCED' && activeLyricIndex >= 0 && currentLyricsLines[activeLyricIndex] && (
+              <button
+                type="button"
+                onClick={() => setIsLyricsOpen(true)}
+                title="Click to open Full Synchronized Lyrics / Teleprompter"
+                className="group/mini-lyric flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-600 dark:text-amber-300 text-[11px] font-bold transition-all max-w-[320px] sm:max-w-md truncate mb-1 shadow-sm active:scale-95"
+              >
+                <Sparkles className="w-3 h-3 text-amber-500 flex-shrink-0 animate-pulse" />
+                <span className="truncate italic">
+                  "{currentLyricsLines[activeLyricIndex].text}"
+                </span>
+                <span className="text-[9px] uppercase px-1 py-0.2 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 font-extrabold flex-shrink-0">
+                  Live
+                </span>
+              </button>
+            )}
 
             {/* Seek Bar */}
             <div className="w-full flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 font-medium select-none">

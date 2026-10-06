@@ -39,7 +39,17 @@ export default function HomePage() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedLanguage, setSelectedLanguage] = useState<string | null>(null);
+  const [selectedGenreSlug, setSelectedGenreSlug] = useState<string | null>(null);
   const [isFiltering, setIsFiltering] = useState(false);
+
+  const quickGenres = [
+    { slug: null, label: 'All Vibrations', icon: '🔥' },
+    { slug: 'desi-hip-hop', label: 'Desi Hip-Hop', icon: '🎤' },
+    { slug: 'punjabi-beats', label: 'Punjabi Beats', icon: '🥁' },
+    { slug: 'bollywood-pop', label: 'Bollywood Pop', icon: '✨' },
+    { slug: 'folk-fusion', label: 'Folk Fusion', icon: '🪕' },
+    { slug: 'sufi-ghazal', label: 'Sufi & Ghazal', icon: '🕊️' },
+  ];
 
   useEffect(() => {
     const fetchHomeData = async () => {
@@ -89,6 +99,9 @@ export default function HomePage() {
 
   const heroSong = data?.trending?.[0];
   const activeLang = data?.languages?.find((l) => l.code === selectedLanguage);
+  const displayedTrending: Song[] = selectedGenreSlug
+    ? (data?.trending || []).filter((s) => s.genreSlug === selectedGenreSlug)
+    : (data?.trending || []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-10">
@@ -259,12 +272,17 @@ export default function HomePage() {
 
       {/* 3. TRENDING NOW SECTION */}
       <section className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2">
             <Flame className="w-5 h-5 text-amber-500" />
             <h2 className="text-xl font-bold font-display text-slate-900 dark:text-white">
               {activeLang ? `Trending ${activeLang.name} Music` : 'Trending Now in India'}
             </h2>
+            {selectedGenreSlug && (
+              <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold border border-amber-500/30">
+                {displayedTrending.length} Tracks
+              </span>
+            )}
           </div>
           <Link
             href={activeLang ? `/music?language=${activeLang.code}` : '/music'}
@@ -274,33 +292,55 @@ export default function HomePage() {
           </Link>
         </div>
 
+        {/* Quick Genre Mood Pills */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {quickGenres.map((g) => {
+            const isAct = selectedGenreSlug === g.slug;
+            return (
+              <button
+                key={g.label}
+                type="button"
+                onClick={() => setSelectedGenreSlug(isAct ? null : g.slug)}
+                className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                  isAct
+                    ? 'bg-amber-500 text-midnight-950 font-bold shadow-saffronGlow scale-105'
+                    : 'bg-black/5 dark:bg-white/5 border border-black/10 dark:border-white/10 text-slate-700 dark:text-gray-300 hover:border-amber-500/40 hover:text-amber-500'
+                }`}
+              >
+                <span>{g.icon}</span>
+                <span>{g.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
         {isFiltering ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4 animate-pulse">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="aspect-square rounded-2xl bg-white/5 border border-white/5" />
             ))}
           </div>
-        ) : data?.trending.length === 0 ? (
+        ) : displayedTrending.length === 0 ? (
           <div className="p-8 rounded-2xl bg-white/5 border border-white/10 text-center space-y-3">
             <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
               <Music className="w-6 h-6" />
             </div>
             <h3 className="text-base font-bold text-white">
-              No {activeLang?.name || ''} songs found in this section yet
+              No tracks found matching this filter
             </h3>
             <p className="text-xs text-gray-400 max-w-sm mx-auto">
-              Explore all 13 Indian languages or be the first verified creator to publish an original track in {activeLang?.name}.
+              Try choosing another vibe or clear the filter to explore all verified Indian music.
             </p>
             <button
-              onClick={() => setSelectedLanguage(null)}
+              onClick={() => setSelectedGenreSlug(null)}
               className="px-4 py-2 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs shadow-saffronGlow"
             >
-              Explore All Languages
+              Reset Vibe Filter
             </button>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-            {data?.trending.map((song) => {
+            {displayedTrending.map((song) => {
               const isCurrent = currentSong?.id === song.id;
               return (
                 <div
@@ -317,7 +357,7 @@ export default function HomePage() {
                   <button
                     onClick={() => {
                       if (isCurrent) togglePlay();
-                      else playSong(song, data.trending);
+                      else playSong(song, displayedTrending);
                     }}
                     className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity ${
                       isCurrent ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
@@ -343,7 +383,7 @@ export default function HomePage() {
                       onClick={(e) => {
                         e.stopPropagation();
                         if (!currentSong || currentSong.id !== song.id) {
-                          playSong(song, data.trending);
+                          playSong(song, displayedTrending);
                         }
                         setIsLyricsOpen(true);
                       }}

@@ -10,25 +10,38 @@ import { Song, LyricLine, LyricSyncStatus } from '@talent5/types';
 export function findActiveLyricIndex(
   currentMs: number,
   lines: LyricLine[],
-  isSynced: boolean
+  isSynced: boolean,
+  anticipationMs: number = 120
 ): number {
   if (!isSynced || !lines || lines.length === 0) return -1;
 
+  const adjustedMs = currentMs + anticipationMs;
+
   // Instrumental intro before first lyric starts
-  if (currentMs < lines[0].startTimeMs) return -1;
+  if (adjustedMs < lines[0].startTimeMs) return -1;
 
   // Instrumental outro after last lyric completes
-  if (currentMs >= lines[lines.length - 1].endTimeMs) return -1;
+  if (currentMs >= lines[lines.length - 1].endTimeMs + 400) return -1;
 
-  // Direct interval match
+  // Direct interval match (active singing window)
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (currentMs >= line.startTimeMs && currentMs < line.endTimeMs) {
+    if (adjustedMs >= line.startTimeMs && currentMs <= line.endTimeMs) {
       return i;
     }
   }
 
-  // During instrumental gaps between sung lines, do not falsely highlight previous line
+  // Handle tiny micro-gaps between consecutive lines without jarring flicker
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (currentMs >= lines[i].endTimeMs && adjustedMs < lines[i + 1].startTimeMs) {
+      // If gap is shorter than 450ms, hold line i for smooth transition
+      if (lines[i + 1].startTimeMs - lines[i].endTimeMs < 450) {
+        return i;
+      }
+      return -1; // Genuine instrumental break
+    }
+  }
+
   return -1;
 }
 
@@ -319,40 +332,49 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // High-frequency playback sync timer (every 100ms) for ultra-smooth lyrics highlight
+  // 60FPS High-frequency playback sync loop with requestAnimationFrame for frame-accurate lyrics tracking
   useEffect(() => {
     if (!isPlaying) return;
-    const interval = setInterval(() => {
+    let animId: number;
+    let lastTelemetryCheck = 0;
+
+    const syncTick = () => {
       const audio = audioRef.current;
-      if (!audio || audio.paused) return;
+      if (audio && !audio.paused) {
+        const cTime = audio.currentTime;
+        setCurrentTime(cTime);
 
-      const cTime = audio.currentTime;
-      setCurrentTime(cTime);
+        // 30-second qualified stream telemetry detection (checked throttled)
+        const now = Date.now();
+        if (now - lastTelemetryCheck > 1000) {
+          lastTelemetryCheck = now;
+          const cSong = currentSongRef.current;
+          if (cSong && cTime >= 30 && !qualifiedStreamLoggedRef.current[cSong.id]) {
+            qualifiedStreamLoggedRef.current[cSong.id] = true;
+            fetch('/api/v1/telemetry/play', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                songId: cSong.id,
+                durationPlayedSeconds: Math.round(cTime),
+              }),
+            }).catch(() => {});
+          }
+        }
 
-      // 30-second qualified stream telemetry detection
-      const cSong = currentSongRef.current;
-      if (cSong && cTime >= 30 && !qualifiedStreamLoggedRef.current[cSong.id]) {
-        qualifiedStreamLoggedRef.current[cSong.id] = true;
-        fetch('/api/v1/telemetry/play', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            songId: cSong.id,
-            durationPlayedSeconds: Math.round(cTime),
-          }),
-        }).catch(() => {});
+        const isSynced = currentLyricsSyncStatusRef.current === 'SYNCED';
+        const lines = currentLyricsLinesRef.current;
+        const lineIdx = findActiveLyricIndex(cTime * 1000, lines, isSynced);
+        if (lineIdx !== activeLyricIndexRef.current) {
+          activeLyricIndexRef.current = lineIdx;
+          setActiveLyricIndex(lineIdx);
+        }
       }
+      animId = requestAnimationFrame(syncTick);
+    };
 
-      const isSynced = currentLyricsSyncStatusRef.current === 'SYNCED';
-      const lines = currentLyricsLinesRef.current;
-      const lineIdx = findActiveLyricIndex(cTime * 1000, lines, isSynced);
-      if (lineIdx !== activeLyricIndexRef.current) {
-        activeLyricIndexRef.current = lineIdx;
-        setActiveLyricIndex(lineIdx);
-      }
-    }, 100);
-
-    return () => clearInterval(interval);
+    animId = requestAnimationFrame(syncTick);
+    return () => cancelAnimationFrame(animId);
   }, [isPlaying]);
 
   const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLAudioElement>) => {

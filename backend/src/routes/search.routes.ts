@@ -38,9 +38,14 @@ router.get('/', async (req: Request, res: Response) => {
          JOIN artists a ON s.artist_id = a.id
          JOIN languages l ON s.language_id = l.id
          JOIN genres g ON s.genre_id = g.id
-         WHERE (s.title ILIKE $1 OR a.name ILIKE $1) AND s.status = 'PUBLISHED'
+         WHERE (
+           s.title ILIKE $1 OR 
+           a.name ILIKE $1 OR 
+           s.id IN (SELECT song_id FROM lyrics WHERE full_text ILIKE $1) OR
+           s.id IN (SELECT l.song_id FROM lyrics l JOIN lyric_lines ll ON ll.lyrics_id = l.id WHERE ll.text ILIKE $1)
+         ) AND s.status = 'PUBLISHED'
          ORDER BY s.popularity_score DESC
-         LIMIT 10`,
+         LIMIT 12`,
         [pattern]
       ),
       query(
