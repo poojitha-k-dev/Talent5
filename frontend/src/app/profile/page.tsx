@@ -911,7 +911,7 @@ export default function ProfilePage() {
             <div className="pt-2 flex justify-end">
               <Button type="submit" disabled={isUpdating} className="gap-2 text-xs font-bold px-6">
                 <Save className="w-4 h-4" />
-                {isUpdating ? 'Saving to Database...' : 'Save Profile Changes'}
+                {isUpdating ? 'Saving Changes...' : 'Save Profile Changes'}
               </Button>
             </div>
           </form>

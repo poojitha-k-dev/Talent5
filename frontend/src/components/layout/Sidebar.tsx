@@ -691,9 +691,9 @@ export const Sidebar: React.FC = () => {
         {showCreateModal && (
           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
             <div className="bg-white dark:bg-[#141620] border border-black/10 dark:border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl text-zinc-900 dark:text-white">
-              <h3 className="text-base font-bold mb-1">Create Real Playlist</h3>
+              <h3 className="text-base font-bold mb-1">Create Playlist</h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400 mb-4">
-                Saved directly to database and visible in your library.
+                Save and organize your favorite songs in your library.
               </p>
 
               {!user && (

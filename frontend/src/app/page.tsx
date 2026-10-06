@@ -248,7 +248,7 @@ export default function RootHomePage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search live database: songs, artists, classical ragas, languages..."
+            placeholder="Search songs, artists, albums, classical ragas, languages..."
             className="w-full pl-11 pr-4 py-2.5 rounded-full bg-white dark:bg-white/[0.08] hover:bg-zinc-50 dark:hover:bg-white/[0.12] focus:bg-white dark:focus:bg-white/[0.15] border border-black/10 dark:border-white/[0.12] focus:border-orange-500 text-xs sm:text-sm text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-orange-500/25 transition-all shadow-xs"
           />
         </form>
@@ -300,9 +300,9 @@ export default function RootHomePage() {
       ──────────────────────────────────────────────────────────── */}
       {loading && heroTracks.length === 0 ? (
         <div className="w-full min-h-[460px] sm:min-h-[500px] lg:min-h-[540px] rounded-3xl bg-zinc-200 dark:bg-zinc-800/50 animate-pulse border border-black/10 dark:border-white/10 flex items-center justify-center">
-          <div className="flex items-center gap-3 text-zinc-400">
-            <Disc3 className="w-7 h-7 animate-spin text-orange-500" />
-            <span className="text-sm font-medium">Syncing studio masters from database...</span>
+          <div className="flex items-center gap-3 text-zinc-500 dark:text-zinc-400">
+            <Disc3 className="w-6 h-6 animate-spin text-orange-500" />
+            <span className="text-sm font-medium">Curating your music experience...</span>
           </div>
         </div>
       ) : heroTracks.length > 0 ? (
@@ -341,7 +341,7 @@ export default function RootHomePage() {
                     <div className="flex items-center gap-2.5">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#ff5722] animate-pulse" />
                       <span className="text-xs font-bold uppercase tracking-widest text-[#ff7043] flex items-center gap-2">
-                        <span>Database Spotlight Master</span>
+                        <span>Featured Spotlight</span>
                         <span>•</span>
                         <span>{track.languageName || 'Regional'} Vocal Heritage</span>
                       </span>
@@ -599,7 +599,7 @@ export default function RootHomePage() {
               </h2>
             </div>
             <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-              Original native scripts and live song collections synced from database
+              Original native scripts and curated music collections across India
             </p>
           </div>
           <Link
