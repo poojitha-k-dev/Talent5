@@ -5,56 +5,54 @@
 @tailwind utilities;
 
 :root {
-  /* Default Dark Mode (Royal Midnight Obsidian) */
-  /* bg-primary is semi-transparent so background music art bleeds through */
-  --bg-primary: rgba(6, 6, 9, 0.82);
-  --bg-primary-solid: #060609;
-  --bg-secondary: rgba(11, 12, 16, 0.78);
-  --bg-card: rgba(16, 18, 27, 0.68);
-  --bg-card-hover: rgba(26, 29, 44, 0.82);
+  /* Default Dark Mode (Refined Slate Obsidian) */
+  --bg-primary: rgba(14, 16, 23, 0.85);
+  --bg-primary-solid: #0e1017;
+  --bg-secondary: rgba(20, 23, 33, 0.85);
+  --bg-card: rgba(24, 28, 40, 0.75);
+  --bg-card-hover: rgba(34, 40, 58, 0.9);
   --text-primary: #FFFFFF;
   --text-secondary: #94A3B8;
   --text-muted: #64748B;
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-highlight: rgba(245, 158, 11, 0.35);
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-highlight: rgba(245, 158, 11, 0.45);
   --accent-saffron: #F59E0B;
   --accent-saffron-glow: rgba(245, 158, 11, 0.35);
   --accent-peacock: #14B8A6;
   --accent-sindoor: #F43F5E;
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-bg: rgba(11, 12, 16, 0.62);
-  --card-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.7);
-  --scroll-track: #0B0C10;
-  --scroll-thumb: #1F2232;
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-bg: rgba(18, 21, 30, 0.75);
+  --card-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.5);
+  --scroll-track: #0e1017;
+  --scroll-thumb: #232736;
 }
 
 .light {
   /* Light Mode (Warm Ivory & Deep Ink Editorial) */
-  /* bg-primary is semi-transparent so background music art bleeds through */
-  --bg-primary: rgba(247, 244, 238, 0.80);
-  --bg-primary-solid: #F7F4EE;
-  --bg-secondary: rgba(239, 236, 228, 0.78);
-  --bg-card: rgba(255, 255, 255, 0.82);
-  --bg-card-hover: rgba(255, 255, 255, 0.96);
+  --bg-primary: rgba(248, 246, 241, 0.95);
+  --bg-primary-solid: #f8f6f1;
+  --bg-secondary: rgba(242, 238, 230, 0.95);
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --bg-card-hover: #ffffff;
   --text-primary: #10182A;
   --text-secondary: #475569;
   --text-muted: #64748B;
-  --border-subtle: rgba(245, 154, 0, 0.16);
+  --border-subtle: rgba(0, 0, 0, 0.08);
   --border-highlight: rgba(245, 154, 0, 0.5);
-  --accent-saffron: #F59A00;
-  --accent-saffron-glow: rgba(245, 154, 0, 0.25);
+  --accent-saffron: #ea580c;
+  --accent-saffron-glow: rgba(234, 88, 12, 0.25);
   --accent-peacock: #0D9488;
   --accent-sindoor: #E11D48;
-  --glass-border: rgba(217, 119, 6, 0.2);
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --card-shadow: 0 10px 30px -10px rgba(180, 83, 9, 0.12), 0 4px 12px rgba(0, 0, 0, 0.05);
-  --scroll-track: #F3ECE1;
-  --scroll-thumb: #D5CAAC;
+  --glass-border: rgba(0, 0, 0, 0.08);
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --card-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.06), 0 4px 10px rgba(0, 0, 0, 0.03);
+  --scroll-track: #f0ece3;
+  --scroll-thumb: #d3cbbd;
 }
 
 body {
-  /* Solid base colour — dark for all pages */
-  background-color: #060609;
+  /* Dynamic base colour with smooth transitions */
+  background-color: var(--bg-primary-solid);
   color: var(--text-primary);
   font-family: 'Plus Jakarta Sans', sans-serif;
   overflow-x: hidden;
@@ -81,7 +79,25 @@ h1, h2, h3, h4, h5, h6, .font-display {
   letter-spacing: -0.02em;
 }
 
-/* Custom Scrollbar */
+/* Custom Scrollbar & Hardware Accelerated Smooth Scrolling */
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+.smooth-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  transform: translateZ(0);
+  will-change: scroll-position;
+}
+
+/* Card image rendering optimization during fast scroll */
+img {
+  content-visibility: auto;
+}
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -100,18 +116,18 @@ h1, h2, h3, h4, h5, h6, .font-display {
   background: var(--accent-saffron);
 }
 
-/* Glassmorphism Panel */
+/* Glassmorphism Panel (Optimized GPU transitions) */
 .glass-panel {
   background: var(--glass-bg);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--border-subtle);
   box-shadow: var(--card-shadow);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .glass-panel-hover {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .glass-panel-hover:hover {

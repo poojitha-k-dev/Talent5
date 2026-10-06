@@ -9,6 +9,7 @@ import { MobileNav } from '@/components/layout/MobileNav';
 import { GlobalPlayer } from '@/components/player/GlobalPlayer';
 import { PWAInstallPrompt } from '@/components/ui/PWAInstallPrompt';
 import { LandingBackground } from '@/components/layout/LandingBackground';
+import { RouteProgressBar } from '@/components/layout/RouteProgressBar';
 
 export const metadata: Metadata = {
   title: 'Talent5 — Real Voices. Original Stories. Desi Talent.',
@@ -48,16 +49,17 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className="bg-[#0a0b0e] text-[var(--text-primary)] min-h-screen antialiased selection:bg-orange-500 selection:text-white transition-colors duration-300 overflow-hidden">
+      <body className="bg-[#f8f6f1] dark:bg-[#0e1017] text-zinc-900 dark:text-[var(--text-primary)] min-h-screen antialiased selection:bg-orange-500 selection:text-white overflow-hidden">
+        <RouteProgressBar />
         <ThemeProvider>
           <AuthProvider>
             <AudioProvider>
-              <div className="flex h-screen w-screen overflow-hidden bg-[#0a0b0e]">
+              <div className="flex h-screen w-screen overflow-hidden bg-[#f8f6f1] dark:bg-[#0e1017]">
                 {/* 1. Sleek Pinned Left Sidebar */}
                 <Sidebar />
 
-                {/* 2. Scrollable Dashboard Main Content (NO TOP NAVBAR) */}
-                <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto overflow-x-hidden">
+                {/* 2. Scrollable Dashboard Main Content (Hardware Accelerated & Smooth) */}
+                <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto overflow-x-hidden smooth-scroll">
                   <LandingBackground />
                   <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 pb-36 max-w-[1600px] w-full mx-auto">
                     {children}

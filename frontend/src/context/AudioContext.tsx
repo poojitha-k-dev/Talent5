@@ -320,17 +320,16 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // High-frequency playback sync timer (every 100ms) for ultra-smooth lyrics highlight
+  // Optimized playback sync timer: only run high-frequency (100ms) interval when lyrics or expanded modal is open!
+  // Otherwise, standard HTML5 audio onTimeUpdate event smoothly handles progress (~250ms), saving massive CPU overhead.
   useEffect(() => {
     if (!isPlaying) return;
-    const interval = setInterval(() => {
+
+    // Telemetry ticker (low-frequency check)
+    const telemetryInterval = setInterval(() => {
       const audio = audioRef.current;
       if (!audio || audio.paused) return;
-
       const cTime = audio.currentTime;
-      setCurrentTime(cTime);
-
-      // 30-second qualified stream telemetry detection
       const cSong = currentSongRef.current;
       if (cSong && cTime >= 30 && !qualifiedStreamLoggedRef.current[cSong.id]) {
         qualifiedStreamLoggedRef.current[cSong.id] = true;
@@ -343,18 +342,32 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
           }),
         }).catch(() => {});
       }
+    }, 1000);
 
-      const isSynced = currentLyricsSyncStatusRef.current === 'SYNCED';
-      const lines = currentLyricsLinesRef.current;
-      const lineIdx = findActiveLyricIndex(cTime * 1000, lines, isSynced);
-      if (lineIdx !== activeLyricIndexRef.current) {
-        activeLyricIndexRef.current = lineIdx;
-        setActiveLyricIndex(lineIdx);
-      }
-    }, 100);
+    let lyricsInterval: NodeJS.Timeout | null = null;
+    if (isLyricsOpen || isExpandedOpen) {
+      lyricsInterval = setInterval(() => {
+        const audio = audioRef.current;
+        if (!audio || audio.paused) return;
 
-    return () => clearInterval(interval);
-  }, [isPlaying]);
+        const cTime = audio.currentTime;
+        setCurrentTime(cTime);
+
+        const isSynced = currentLyricsSyncStatusRef.current === 'SYNCED';
+        const lines = currentLyricsLinesRef.current;
+        const lineIdx = findActiveLyricIndex(cTime * 1000, lines, isSynced);
+        if (lineIdx !== activeLyricIndexRef.current) {
+          activeLyricIndexRef.current = lineIdx;
+          setActiveLyricIndex(lineIdx);
+        }
+      }, 100);
+    }
+
+    return () => {
+      clearInterval(telemetryInterval);
+      if (lyricsInterval) clearInterval(lyricsInterval);
+    };
+  }, [isPlaying, isLyricsOpen, isExpandedOpen]);
 
   const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLAudioElement>) => {
     const audio = e.currentTarget;
@@ -417,42 +430,77 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     return () => { isMounted = false; };
   }, [currentSong]);
 
+  const value = React.useMemo<AudioContextType>(
+    () => ({
+      currentSong,
+      isPlaying,
+      duration,
+      currentTime,
+      volume,
+      isMuted,
+      isShuffle,
+      repeatMode,
+      queue,
+      queueIndex,
+      isQueueOpen,
+      isLyricsOpen,
+      isExpandedOpen,
+      activeLyricIndex,
+      currentLyricsLines,
+      currentLyricsSyncStatus,
+      currentLyricsFullText,
+      playSong,
+      togglePlay,
+      seek,
+      nextTrack,
+      prevTrack,
+      setVolume,
+      toggleMute,
+      toggleShuffle,
+      toggleRepeat,
+      addToQueue,
+      removeFromQueue,
+      setIsQueueOpen,
+      setIsLyricsOpen,
+      setIsExpandedOpen,
+    }),
+    [
+      currentSong,
+      isPlaying,
+      duration,
+      currentTime,
+      volume,
+      isMuted,
+      isShuffle,
+      repeatMode,
+      queue,
+      queueIndex,
+      isQueueOpen,
+      isLyricsOpen,
+      isExpandedOpen,
+      activeLyricIndex,
+      currentLyricsLines,
+      currentLyricsSyncStatus,
+      currentLyricsFullText,
+      playSong,
+      togglePlay,
+      seek,
+      nextTrack,
+      prevTrack,
+      setVolume,
+      toggleMute,
+      toggleShuffle,
+      toggleRepeat,
+      addToQueue,
+      removeFromQueue,
+      setIsQueueOpen,
+      setIsLyricsOpen,
+      setIsExpandedOpen,
+    ]
+  );
+
   return (
-    <AudioContext.Provider
-      value={{
-        currentSong,
-        isPlaying,
-        duration,
-        currentTime,
-        volume,
-        isMuted,
-        isShuffle,
-        repeatMode,
-        queue,
-        queueIndex,
-        isQueueOpen,
-        isLyricsOpen,
-        isExpandedOpen,
-        activeLyricIndex,
-        currentLyricsLines,
-        currentLyricsSyncStatus,
-        currentLyricsFullText,
-        playSong,
-        togglePlay,
-        seek,
-        nextTrack,
-        prevTrack,
-        setVolume,
-        toggleMute,
-        toggleShuffle,
-        toggleRepeat,
-        addToQueue,
-        removeFromQueue,
-        setIsQueueOpen,
-        setIsLyricsOpen,
-        setIsExpandedOpen,
-      }}
-    >
+    <AudioContext.Provider value={value}>
       <audio
         ref={audioRef}
         id="talent5-global-audio"

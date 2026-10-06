@@ -32,12 +32,27 @@ export const PWAInstallPrompt: React.FC = () => {
 
       window.addEventListener('beforeinstallprompt', handleBeforeInstall);
 
-      // Register Service Worker
+      // Register Service Worker in production only. In dev, actively clean up any stale worker.
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker
-          .register('/sw.js')
-          .then(() => console.log('✅ Talent5 Service Worker registered.'))
-          .catch((err) => console.log('SW registration error:', err));
+        if (process.env.NODE_ENV === 'production') {
+          navigator.serviceWorker
+            .register('/sw.js')
+            .then(() => console.log('✅ Talent5 Service Worker registered.'))
+            .catch((err) => console.log('SW registration error:', err));
+        } else {
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            for (const registration of registrations) {
+              registration.unregister();
+            }
+          });
+          if ('caches' in window) {
+            caches.keys().then((names) => {
+              for (const name of names) {
+                caches.delete(name);
+              }
+            });
+          }
+        }
       }
 
       return () => {

@@ -50,7 +50,7 @@ export async function getUserFromRequest(req: Request): Promise<User | null> {
 
   const userRes = await query(
     `SELECT u.id, u.email, u.full_name as "fullName", u.username, u.avatar_url as "avatarUrl", 
-            u.phone, u.is_verified as "isVerified", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
+            u.phone, u.auth_provider as "authProvider", u.is_verified as "isVerified", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
             COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}') as roles
      FROM users u
      LEFT JOIN user_roles ur ON u.id = ur.user_id

@@ -175,6 +175,186 @@ router.get('/me', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/v1/auth/profile-summary - Comprehensive dynamic profile data
+router.get('/profile-summary', async (req: Request, res: Response) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Unauthorized or session expired' });
+    }
+
+    const [
+      likesRes,
+      playlistsRes,
+      followsRes,
+      playsRes,
+      compVotesRes,
+      activeCompsRes,
+      creatorProfileRes,
+      creatorAppRes,
+      recentHistoryRes,
+    ] = await Promise.all([
+      query(`SELECT COUNT(*)::int as count FROM likes WHERE user_id = $1 AND target_type = 'SONG'`, [user.id]),
+      query(`SELECT COUNT(*)::int as count FROM playlists WHERE user_id = $1`, [user.id]),
+      query(`SELECT COUNT(*)::int as count FROM follows WHERE follower_id = $1`, [user.id]),
+      query(
+        `SELECT COUNT(*)::int as count, COALESCE(SUM(duration_played_seconds), 0)::int as total_seconds 
+         FROM song_plays WHERE user_id = $1`,
+        [user.id]
+      ),
+      query(`SELECT COUNT(*)::int as count FROM competition_votes WHERE user_id = $1`, [user.id]),
+      query(`SELECT COUNT(*)::int as count FROM competitions WHERE status = 'ACTIVE'`),
+      query(
+        `SELECT cp.id, cp.stage_name as "stageName", cp.bio, cp.city, cp.state, cp.category, 
+                cp.is_approved as "isApproved", cp.verified_badge as "verifiedBadge", cp.created_at as "createdAt",
+                COALESCE(cw.available_balance_inr, 0) as "availableBalance",
+                COALESCE(cw.total_earned_inr, 0) as "totalEarned"
+         FROM creator_profiles cp
+         LEFT JOIN creator_wallets cw ON cp.id = cw.creator_id
+         WHERE cp.user_id = $1`,
+        [user.id]
+      ),
+      query(
+        `SELECT id, stage_name as "stageName", category, status, created_at as "createdAt"
+         FROM creator_applications
+         WHERE user_id = $1
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [user.id]
+      ),
+      query(
+        `SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds",
+                s.audio_url as "audioUrl", s.artwork_url as "artworkUrl",
+                a.id as "artistId", a.name as "artistName",
+                sp.created_at as "playedAt"
+         FROM song_plays sp
+         JOIN songs s ON sp.song_id = s.id
+         JOIN artists a ON s.artist_id = a.id
+         WHERE sp.user_id = $1
+         ORDER BY sp.created_at DESC
+         LIMIT 6`,
+        [user.id]
+      ),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        user,
+        stats: {
+          likedSongsCount: likesRes.rows[0]?.count || 0,
+          playlistsCount: playlistsRes.rows[0]?.count || 0,
+          followingCount: followsRes.rows[0]?.count || 0,
+          songsPlayedCount: playsRes.rows[0]?.count || 0,
+          totalListeningMinutes: Math.round((playsRes.rows[0]?.total_seconds || 0) / 60),
+          competitionVotesCount: compVotesRes.rows[0]?.count || 0,
+          activeCompetitionsCount: activeCompsRes.rows[0]?.count || 0,
+        },
+        creatorProfile: creatorProfileRes.rows[0] || null,
+        creatorApplication: creatorAppRes.rows[0] || null,
+        recentHistory: recentHistoryRes.rows || [],
+      },
+    });
+  } catch (error: any) {
+    console.error('Profile summary error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Failed to fetch profile summary' });
+  }
+});
+
+// PUT /api/v1/auth/me - Update user profile details
+router.put('/me', async (req: Request, res: Response) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Unauthorized or session expired' });
+    }
+
+    const { fullName, username, phone, avatarUrl } = req.body;
+
+    // Validate username if provided
+    let cleanUsername = user.username;
+    if (username && username.trim() !== user.username) {
+      cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+      if (cleanUsername.length < 3) {
+        return res.status(400).json({ success: false, message: 'Username must be at least 3 alphanumeric characters' });
+      }
+
+      // Check username collision
+      const existing = await query('SELECT id FROM users WHERE LOWER(username) = $1 AND id != $2', [cleanUsername, user.id]);
+      if (existing.rows.length > 0) {
+        return res.status(409).json({ success: false, message: 'Username is already taken by another user' });
+      }
+    }
+
+    const cleanFullName = typeof fullName === 'string' && fullName.trim() ? fullName.trim() : user.fullName;
+    const cleanPhone = typeof phone === 'string' ? phone.trim() : (phone === null ? null : user.phone);
+    const cleanAvatar = typeof avatarUrl === 'string' ? avatarUrl.trim() : (avatarUrl === null ? null : user.avatarUrl);
+
+    await query(
+      `UPDATE users 
+       SET full_name = $1, username = $2, phone = $3, avatar_url = $4, updated_at = NOW() 
+       WHERE id = $5`,
+      [cleanFullName, cleanUsername, cleanPhone, cleanAvatar, user.id]
+    );
+
+    // Fetch updated user with roles
+    const updatedUserRes = await query(
+      `SELECT u.id, u.email, u.full_name as "fullName", u.username, u.avatar_url as "avatarUrl", 
+              u.phone, u.is_verified as "isVerified", u.status, u.created_at as "createdAt", u.updated_at as "updatedAt",
+              COALESCE(array_agg(r.name) FILTER (WHERE r.name IS NOT NULL), '{}') as roles
+       FROM users u
+       LEFT JOIN user_roles ur ON u.id = ur.user_id
+       LEFT JOIN roles r ON ur.role_id = r.id
+       WHERE u.id = $1
+       GROUP BY u.id`,
+      [user.id]
+    );
+
+    const updatedUser = updatedUserRes.rows[0];
+    return res.status(200).json({ success: true, message: 'Profile updated successfully', data: { user: updatedUser } });
+  } catch (error: any) {
+    console.error('Update profile error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Failed to update profile' });
+  }
+});
+
+// POST /api/v1/auth/change-password
+router.post('/change-password', async (req: Request, res: Response) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Unauthorized' });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long' });
+    }
+
+    const userRes = await query('SELECT password_hash FROM users WHERE id = $1', [user.id]);
+    const currentHash = userRes.rows[0]?.password_hash;
+
+    if (currentHash) {
+      if (!currentPassword) {
+        return res.status(400).json({ success: false, message: 'Current password is required' });
+      }
+      const isMatch = await verifyPassword(currentPassword, currentHash);
+      if (!isMatch) {
+        return res.status(400).json({ success: false, message: 'Current password is incorrect' });
+      }
+    }
+
+    const newHash = await hashPassword(newPassword);
+    await query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [newHash, user.id]);
+
+    return res.status(200).json({ success: true, message: 'Password changed successfully' });
+  } catch (error: any) {
+    console.error('Change password error:', error);
+    return res.status(500).json({ success: false, message: error.message || 'Failed to change password' });
+  }
+});
+
+
 // POST /api/v1/auth/forgot-password
 router.post('/forgot-password', async (req: Request, res: Response) => {
   try {

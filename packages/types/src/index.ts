@@ -12,6 +12,7 @@ export interface User {
   username: string;
   avatarUrl?: string | null;
   phone?: string | null;
+  authProvider?: 'password' | 'google' | 'oauth' | string | null;
   isVerified: boolean;
   status: 'ACTIVE' | 'SUSPENDED' | 'DELETED';
   roles: UserRole[];

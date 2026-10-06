@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -15,186 +15,162 @@ import {
   Check,
   Shield,
   LogIn,
+  Disc3,
+  Flame,
+  Globe2,
+  TrendingUp,
+  Award,
 } from 'lucide-react';
 import { useAudio } from '@/context/AudioContext';
 import { useAuth } from '@/context/AuthContext';
 import { Song } from '@talent5/types';
 
-// Curated mood cards with regional deep colors
-const MOOD_BANNERS = [
-  {
-    id: 'mood-1',
-    title: 'Rabindra Sangeet',
-    subtitle: 'Classic Bengali Melodies',
-    image: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=800',
-    color: 'from-rose-950/80 via-rose-900/50 to-black/70',
-    query: 'Bengali',
-  },
-  {
-    id: 'mood-2',
-    title: 'Sufi & Ghazal',
-    subtitle: 'Soulful Mystic Vocals',
-    image: 'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=800',
-    color: 'from-amber-950/80 via-orange-900/50 to-black/70',
-    query: 'Sufi',
-  },
-  {
-    id: 'mood-3',
-    title: 'Carnatic Masters',
-    subtitle: 'Telugu & Malayalam Ragas',
-    image: 'https://images.unsplash.com/photo-1511192336575-5a79af67a629?w=800',
-    color: 'from-blue-950/80 via-cyan-900/50 to-black/70',
-    query: 'Carnatic',
-  },
-  {
-    id: 'mood-4',
-    title: 'Punjabi Folk',
-    subtitle: 'Spiritual Kalams & Energy',
-    image: 'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=800',
-    color: 'from-orange-950/80 via-amber-900/50 to-black/70',
-    query: 'Punjabi',
-  },
-  {
-    id: 'mood-5',
-    title: 'Gujarati Bhakti',
-    subtitle: 'Devotional Harmonies',
-    image: 'https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800',
-    color: 'from-emerald-950/80 via-teal-900/50 to-black/70',
-    query: 'Gujarati',
-  },
-  {
-    id: 'mood-6',
-    title: 'Pure Acoustic',
-    subtitle: 'Unplugged Human Voices',
-    image: 'https://images.unsplash.com/photo-1465847899084-d164df4dedc6?w=800',
-    color: 'from-indigo-950/80 via-purple-900/50 to-black/70',
-    query: 'Acoustic',
-  },
-];
+interface DynamicHeroTrack extends Song {
+  artistBio?: string;
+  artistAvatarUrl?: string;
+  artistFollowersCount?: number;
+  isArtistVerified?: boolean;
+}
 
-// Rich cinematic background images for distinct hero slides
-const HERO_BACKDROPS = [
-  'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1800',
-  'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1800',
-  'https://images.unsplash.com/photo-1518609878373-06d740f60d8b?w=1800',
-  'https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=1800',
-  'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?w=1800',
-];
+interface DynamicGenre {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  songCount: number;
+  artworkUrl: string;
+}
+
+interface DynamicLanguage {
+  id: number;
+  code: string;
+  name: string;
+  nativeName: string;
+  songCount: number;
+  artworkUrl: string;
+}
+
+interface DynamicArtist {
+  id: string;
+  name: string;
+  bio?: string;
+  avatarUrl?: string;
+  isVerified?: boolean;
+  followersCount?: number;
+  songCount: number;
+  totalPlays: string | number;
+  genreName?: string;
+}
+
+interface HomeCatalogPayload {
+  heroTracks: DynamicHeroTrack[];
+  trending: Song[];
+  featured: Song[];
+  newReleases: Song[];
+  languages: DynamicLanguage[];
+  genres: DynamicGenre[];
+  topArtists: DynamicArtist[];
+  stats: {
+    totalSongs: number;
+    totalPlays: string | number;
+    totalArtists: number;
+    totalLanguages: number;
+  };
+}
 
 export default function RootHomePage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const { playSong, isPlaying, currentSong, togglePlay } = useAudio();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
-  const [latestSongs, setLatestSongs] = useState<Song[]>([]);
+  const [catalog, setCatalog] = useState<HomeCatalogPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [followingMap, setFollowingMap] = useState<Record<string, boolean>>({});
+  const [followLoading, setFollowLoading] = useState<Record<string, boolean>>({});
 
-  // Infinite Carousel State
-  const [currentIndex, setCurrentIndex] = useState(1);
-  const [enableTransition, setEnableTransition] = useState(true);
-  const [isPaused, setIsPaused] = useState(false);
+  // Manual Carousel State (Clicks only - No auto-scrolling)
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-  // Fetch real latest songs from database
+  // 1. Fetch live comprehensive catalog from backend database
   useEffect(() => {
+    let isMounted = true;
     setLoading(true);
-    fetch('/api/v1/catalog/songs?sortBy=recent&limit=24')
-      .then((r) => r.json())
+
+    fetch('/api/v1/catalog/home')
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+        return res.json();
+      })
       .then((json) => {
-        if (json.success && json.data) {
-          setLatestSongs(json.data);
+        if (isMounted && json.success && json.data) {
+          setCatalog(json.data);
         }
       })
-      .catch((e) => console.error('Error fetching latest songs:', e))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        console.error('Error fetching dynamic home catalog:', err);
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  // Top 5 Hero Tracks from live database
-  const heroTracks = latestSongs.length > 0
-    ? latestSongs.slice(0, 5)
-    : [
-        {
-          id: 'default-hero-1',
-          title: 'Nuton Pran Dao He',
-          artistName: 'Anusaruti Mitra',
-          genreName: 'Rabindra Sangeet & Classical',
-          artworkUrl: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=1600',
-          audioUrl: 'https://cdn.freesound.org/previews/557/557194_11861866-lq.mp3',
-        } as Song,
-        {
-          id: 'default-hero-2',
-          title: 'Je Dhrubho Je Dhrubho',
-          artistName: 'Gautam Mitra',
-          genreName: 'Hindustani Classical',
-          artworkUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1600',
-          audioUrl: 'https://cdn.freesound.org/previews/415/415951_5121236-lq.mp3',
-        } as Song,
-      ];
-
-  // Infinite clones array: [Last, ...Originals, First]
-  const slides = heroTracks.length > 1
-    ? [heroTracks[heroTracks.length - 1], ...heroTracks, heroTracks[0]]
-    : heroTracks;
-
-  // Re-enable CSS transition on next animation frame after snap reset
+  // 2. Fetch authenticated user followed artists from database
   useEffect(() => {
-    if (!enableTransition) {
-      const frame = requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setEnableTransition(true);
-        });
-      });
-      return () => cancelAnimationFrame(frame);
+    if (!token) {
+      setFollowingMap({});
+      return;
     }
-  }, [enableTransition]);
 
-  // AUTOMATIC FORWARD SLIDING (Every 4.5 seconds, pauses on hover)
-  useEffect(() => {
-    if (isPaused || heroTracks.length <= 1) return;
+    fetch('/api/v1/library', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && json.data?.followedArtists) {
+          const map: Record<string, boolean> = {};
+          json.data.followedArtists.forEach((a: any) => {
+            if (a.id) map[a.id] = true;
+            if (a.name) map[a.name] = true;
+          });
+          setFollowingMap(map);
+        }
+      })
+      .catch((err) => console.error('Failed to load user followed artists:', err));
+  }, [token]);
 
-    const timer = setInterval(() => {
-      setEnableTransition(true);
-      setCurrentIndex((prev) => prev + 1);
-    }, 4500);
+  const heroTracks = useMemo(() => {
+    return catalog?.heroTracks || [];
+  }, [catalog?.heroTracks]);
 
-    return () => clearInterval(timer);
-  }, [isPaused, heroTracks.length]);
-
-  // Seamless snap reset when sliding into the cloned boundary slides
-  const handleTransitionEnd = () => {
-    if (heroTracks.length <= 1) return;
-
-    if (currentIndex >= heroTracks.length + 1) {
-      // Reached the clone of Slide 0 at the end -> Snap silently back to Slide 0 (index 1)
-      setEnableTransition(false);
-      setCurrentIndex(1);
-    } else if (currentIndex <= 0) {
-      // Reached the clone of Slide N at the beginning -> Snap silently back to Slide N (index heroTracks.length)
-      setEnableTransition(false);
-      setCurrentIndex(heroTracks.length);
-    }
-  };
+  // Combined pool of all available loaded songs for seamless continuous playback queue
+  const allSongsPool = useMemo(() => {
+    if (!catalog) return [];
+    const pool = new Map<string, Song>();
+    (catalog.heroTracks || []).forEach((s) => pool.set(s.id, s));
+    (catalog.trending || []).forEach((s) => pool.set(s.id, s));
+    (catalog.featured || []).forEach((s) => pool.set(s.id, s));
+    (catalog.newReleases || []).forEach((s) => pool.set(s.id, s));
+    return Array.from(pool.values());
+  }, [catalog]);
 
   const handleHeroNext = () => {
-    setEnableTransition(true);
-    setCurrentIndex((prev) => prev + 1);
+    if (heroTracks.length <= 1) return;
+    setCurrentIndex((prev) => (prev + 1) % heroTracks.length);
   };
 
   const handleHeroPrev = () => {
-    setEnableTransition(true);
-    setCurrentIndex((prev) => prev - 1);
+    if (heroTracks.length <= 1) return;
+    setCurrentIndex((prev) => (prev - 1 + heroTracks.length) % heroTracks.length);
   };
 
   const handleJumpToDot = (dotIdx: number) => {
-    setEnableTransition(true);
-    setCurrentIndex(dotIdx + 1);
+    setCurrentIndex(dotIdx);
   };
-
-  // Active indicator dot (always 0 to heroTracks.length - 1)
-  const activeDot = heroTracks.length > 0
-    ? (currentIndex - 1 + heroTracks.length) % heroTracks.length
-    : 0;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,40 +179,66 @@ export default function RootHomePage() {
     }
   };
 
-  const handlePlayHeroTrack = (track: Song) => {
+  const handlePlaySong = (track: Song) => {
     if (currentSong?.id === track.id) {
       togglePlay();
     } else {
-      playSong(track, latestSongs);
+      playSong(track, allSongsPool.length > 0 ? allSongsPool : [track]);
     }
   };
 
-  const toggleFollow = (artistName: string) => {
+  // Live database toggle follow artist with optimistic UI & auth validation
+  const toggleFollow = async (artistId?: string, artistName?: string) => {
+    if (!artistId) return;
+
+    if (!user || !token) {
+      router.push('/login');
+      return;
+    }
+
+    const currentStatus = !!followingMap[artistId];
+    // Optimistic state update
     setFollowingMap((prev) => ({
       ...prev,
-      [artistName]: !prev[artistName],
+      [artistId]: !currentStatus,
+      ...(artistName ? { [artistName]: !currentStatus } : {}),
     }));
+    setFollowLoading((prev) => ({ ...prev, [artistId]: true }));
+
+    try {
+      const res = await fetch('/api/v1/social/follow', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ artistId }),
+      });
+
+      if (!res.ok) {
+        // Revert on API error
+        setFollowingMap((prev) => ({
+          ...prev,
+          [artistId]: currentStatus,
+          ...(artistName ? { [artistName]: currentStatus } : {}),
+        }));
+      }
+    } catch (err) {
+      console.error('Follow request error:', err);
+      setFollowingMap((prev) => ({
+        ...prev,
+        [artistId]: currentStatus,
+        ...(artistName ? { [artistName]: currentStatus } : {}),
+      }));
+    } finally {
+      setFollowLoading((prev) => ({ ...prev, [artistId]: false }));
+    }
   };
 
-  // Distinct top artists from real database songs
-  const distinctArtists = React.useMemo(() => {
-    const map = new Map<string, { name: string; artwork: string; genre: string }>();
-    latestSongs.forEach((s) => {
-      if (s.artistName && !map.has(s.artistName)) {
-        map.set(s.artistName, {
-          name: s.artistName,
-          artwork: s.artworkUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400',
-          genre: s.genreName || s.languageName || 'Artist',
-        });
-      }
-    });
-    return Array.from(map.values()).slice(0, 6);
-  }, [latestSongs]);
-
   return (
-    <div className="w-full space-y-9 select-none text-zinc-100">
+    <div className="w-full space-y-10 select-none text-zinc-900 dark:text-zinc-100 pb-16">
       {/* ────────────────────────────────────────────────────────────
-          1. TOP SEARCH & PROFILE BAR
+          1. TOP SEARCH & PROFILE BAR (Live Auth State)
       ──────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-4">
         {/* Rounded Pill Search Bar */}
@@ -246,33 +248,23 @@ export default function RootHomePage() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search songs, artists, albums, playlists..."
-            className="w-full pl-11 pr-4 py-2.5 rounded-full bg-white/[0.05] hover:bg-white/[0.08] focus:bg-white/[0.1] border border-white/[0.08] focus:border-orange-500/50 text-xs sm:text-sm text-white placeholder-zinc-400 focus:outline-none focus:ring-1 focus:ring-orange-500/50 transition-all shadow-inner"
+            placeholder="Search live database: songs, artists, classical ragas, languages..."
+            className="w-full pl-11 pr-4 py-2.5 rounded-full bg-white dark:bg-white/[0.08] hover:bg-zinc-50 dark:hover:bg-white/[0.12] focus:bg-white dark:focus:bg-white/[0.15] border border-black/10 dark:border-white/[0.12] focus:border-orange-500 text-xs sm:text-sm text-zinc-900 dark:text-white placeholder-zinc-500 dark:placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-orange-500/25 transition-all shadow-xs"
           />
         </form>
 
         {/* Right Corner Actions */}
         <div className="flex items-center gap-3">
           <Link
-            href="/admin/login"
-            prefetch={false}
-            className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 border border-rose-500/20 transition-all"
-            title="Talent5 Admin Portal Gateway"
-          >
-            <Shield className="w-3.5 h-3.5 text-rose-400" />
-            <span>Admin</span>
-          </Link>
-
-          <Link
             href="/creator-studio/apply"
-            className="hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold bg-white/[0.06] hover:bg-white/[0.1] border border-white/[0.1] hover:border-orange-500/30 text-white transition-all shadow-sm"
+            className="hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-semibold bg-white dark:bg-white/[0.08] hover:bg-zinc-100 dark:hover:bg-white/[0.12] border border-black/10 dark:border-white/[0.12] text-zinc-800 dark:text-white transition-all shadow-xs"
           >
             <Sparkles className="w-3.5 h-3.5 text-orange-400" />
             <span>Upgrade</span>
           </Link>
 
           <button
-            className="p-2 rounded-full text-zinc-400 hover:text-white hover:bg-white/[0.06] transition-colors relative"
+            className="p-2 rounded-full text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-black/[0.05] dark:hover:bg-white/[0.08] transition-colors relative"
             title="Notifications"
           >
             <Bell className="w-4 h-4" />
@@ -282,13 +274,13 @@ export default function RootHomePage() {
           {user ? (
             <Link
               href="/profile"
-              className="flex items-center gap-2 p-1 pr-2 rounded-full hover:bg-white/[0.06] transition-colors"
+              className="flex items-center gap-2 p-1 pr-3 rounded-full hover:bg-white/[0.06] transition-colors border border-transparent hover:border-white/10"
             >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold text-xs shadow-md border border-white/10">
-                {(user.fullName || (user as any).name || user.username || 'D')[0]?.toUpperCase()}
+              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-orange-500 to-amber-500 flex items-center justify-center text-white font-bold text-xs shadow-md border border-white/20">
+                {(user.fullName || (user as any).name || user.username || 'U')[0]?.toUpperCase()}
               </div>
-              <span className="hidden md:inline text-xs font-medium text-zinc-200">
-                {user.fullName || (user as any).name || user.username || 'Desi Artist'}
+              <span className="hidden md:inline text-xs font-medium text-zinc-800 dark:text-zinc-200">
+                {user.fullName || (user as any).name || user.username || 'My Profile'}
               </span>
             </Link>
           ) : (
@@ -304,244 +296,263 @@ export default function RootHomePage() {
       </div>
 
       {/* ────────────────────────────────────────────────────────────
-          2. FULL-WIDTH CINEMATIC HERO SLIDER (INFINITE SEAMLESS LOOP)
+          2. FULL-WIDTH CINEMATIC HERO SLIDER (Database-Driven Tracks)
       ──────────────────────────────────────────────────────────── */}
-      <div
-        className="w-full relative rounded-3xl overflow-hidden min-h-[460px] sm:min-h-[500px] lg:min-h-[540px] border border-white/[0.08] shadow-2xl group"
-        
-        
-      >
-        {/* HORIZONTAL CONTINUOUS SLIDING TRACK */}
+      {loading && heroTracks.length === 0 ? (
+        <div className="w-full min-h-[460px] sm:min-h-[500px] lg:min-h-[540px] rounded-3xl bg-zinc-200 dark:bg-zinc-800/50 animate-pulse border border-black/10 dark:border-white/10 flex items-center justify-center">
+          <div className="flex items-center gap-3 text-zinc-400">
+            <Disc3 className="w-7 h-7 animate-spin text-orange-500" />
+            <span className="text-sm font-medium">Syncing studio masters from database...</span>
+          </div>
+        </div>
+      ) : heroTracks.length > 0 ? (
         <div
-          onTransitionEnd={handleTransitionEnd}
-          className={`flex h-full ${
-            enableTransition ? 'transition-transform duration-700 ease-out' : ''
-          }`}
-          style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+          className="w-full relative rounded-3xl overflow-hidden min-h-[460px] sm:min-h-[500px] lg:min-h-[540px] border border-black/10 dark:border-white/[0.12] shadow-2xl ring-1 ring-white/10"
         >
-          {slides.map((track, idx) => {
-            const isCurrentPlaying = currentSong?.id === track.id && isPlaying;
-            const artistKey = track.artistName || 'Unknown Artist';
-            const isArtistFollowed = !!followingMap[artistKey];
-            const backdropImg = HERO_BACKDROPS[idx % HERO_BACKDROPS.length];
+          {/* HORIZONTAL SLIDING TRACK - ONLY MOVES ON EXPLICIT BUTTON/DOT CLICK */}
+          <div
+            className="flex h-full transition-transform duration-500 ease-in-out"
+            style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+          >
+            {heroTracks.map((track, idx) => {
+              const isCurrentPlaying = currentSong?.id === track.id && isPlaying;
+              const artistId = track.artistId;
+              const isArtistFollowed = !!(artistId && followingMap[artistId]) || !!(track.artistName && followingMap[track.artistName]);
+              const isFollowingThis = !!(artistId && followLoading[artistId]);
 
-            return (
-              <div
-                key={`slide-${idx}-${track.id}`}
-                className="w-full flex-shrink-0 min-w-full relative min-h-[460px] sm:min-h-[500px] lg:min-h-[540px] flex flex-col justify-between p-6 sm:p-10 lg:p-12"
-              >
-                {/* Background Stage Backdrop */}
+              return (
                 <div
-                  className="absolute inset-0 bg-cover bg-center"
-                  style={{ backgroundImage: `url('${track.artworkUrl || backdropImg}')` }}
-                />
+                  key={`hero-slide-${track.id}`}
+                  className="w-full flex-shrink-0 min-w-full relative min-h-[460px] sm:min-h-[500px] lg:min-h-[540px] flex flex-col justify-between p-6 sm:p-10 lg:p-12"
+                >
+                  {/* Background Stage Backdrop */}
+                  <div
+                    className="absolute inset-0 bg-cover bg-center filter brightness-110 contrast-105"
+                    style={{ backgroundImage: `url('${track.artworkUrl || 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=1600'}')` }}
+                  />
 
-                {/* Dark Vignette Overlays for Legibility */}
-                <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/75 to-black/45" />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#0a0b0e] via-black/25 to-transparent" />
-                <div className="absolute top-0 right-0 w-[550px] h-[550px] bg-orange-500/15 rounded-full blur-[140px] pointer-events-none" />
+                  {/* Gradient overlays for readability */}
+                  <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/55 to-black/30" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                  <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[radial-gradient(circle_at_center,rgba(249,115,22,0.2)_0%,transparent_70%)] rounded-full pointer-events-none" />
 
-                {/* Top Header of Slide: Kicker + Manual Arrows */}
-                <div className="relative z-10 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#ff5722] animate-pulse" />
-                    <span className="text-xs font-bold uppercase tracking-widest text-[#ff6a3d]">
-                      Artist of the Week • Real Vocal Masters
-                    </span>
-                  </div>
-
-                  {/* Manual Arrow Buttons */}
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleHeroPrev();
-                      }}
-                      className="w-9 h-9 rounded-full bg-black/50 hover:bg-black/80 border border-white/15 flex items-center justify-center text-zinc-300 hover:text-white transition-all backdrop-blur-md hover:opacity-90 shadow-md"
-                      title="Previous Slide"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleHeroNext();
-                      }}
-                      className="w-9 h-9 rounded-full bg-black/50 hover:bg-black/80 border border-white/15 flex items-center justify-center text-zinc-300 hover:text-white transition-all backdrop-blur-md hover:opacity-90 shadow-md"
-                      title="Next Slide"
-                    >
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Center Content of Slide */}
-                <div className="relative z-10 my-auto py-8 max-w-2xl space-y-4">
-                  <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black font-display tracking-tight text-white drop-shadow-xl leading-tight">
-                    {track.artistName || 'Arijit Singh'}
-                  </h1>
-
-                  <div className="flex items-center gap-3 text-sm font-semibold text-orange-400">
-                    <span>🎵 {track.title}</span>
-                    <span className="text-zinc-500">•</span>
-                    <span className="text-zinc-300 font-normal">
-                      {track.genreName || track.languageName || 'Indian Classical'}
-                    </span>
-                  </div>
-
-                  <p className="text-sm sm:text-base text-zinc-300/90 leading-relaxed font-normal max-w-xl">
-                    {track.albumTitle
-                      ? `Featuring authentic vocal performances from the verified "${track.albumTitle}" master collection.`
-                      : 'Feel the raw human emotion in every note. Stream pure regional vocal masters with zero AI noise.'}
-                  </p>
-
-                  {/* Buttons: Play All + Follow */}
-                  <div className="pt-2 flex items-center gap-4">
-                    <button
-                      onClick={() => handlePlayHeroTrack(track)}
-                      className="flex items-center gap-2.5 px-8 py-3 rounded-full bg-[#ff5722] hover:bg-[#ff6a3d] text-white font-bold text-sm shadow-xl shadow-orange-500/30 transition-all hover:opacity-95"
-                    >
-                      {isCurrentPlaying ? (
-                        <>
-                          <Pause className="w-4 h-4 fill-current" />
-                          <span>Pause</span>
-                        </>
-                      ) : (
-                        <>
-                          <Play className="w-4 h-4 fill-current" />
-                          <span>Play All</span>
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={() => toggleFollow(track.artistName || 'Unknown Artist')}
-                      className={`flex items-center gap-2 px-6 py-3 rounded-full border text-sm font-semibold backdrop-blur-md transition-all ${
-                        isArtistFollowed
-                          ? 'bg-white/20 border-white text-white'
-                          : 'bg-black/40 hover:bg-black/60 border-white/20 text-zinc-200 hover:text-white'
-                      }`}
-                    >
-                      {isArtistFollowed ? (
-                        <>
-                          <Check className="w-4 h-4" />
-                          <span>Following</span>
-                        </>
-                      ) : (
-                        <span>Follow</span>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Bottom of Slide: Listeners Count + Handwritten Quote */}
-                <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4 pt-6 border-t border-white/10">
-                  {/* Listener avatars + counter */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex -space-x-2.5">
-                      <img
-                        src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100"
-                        alt="Listener"
-                        className="w-8 h-8 rounded-full border-2 border-black object-cover"
-                      />
-                      <img
-                        src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100"
-                        alt="Listener"
-                        className="w-8 h-8 rounded-full border-2 border-black object-cover"
-                      />
-                      <img
-                        src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=100"
-                        alt="Listener"
-                        className="w-8 h-8 rounded-full border-2 border-black object-cover"
-                      />
+                  {/* Top Header of Slide: Kicker + Manual Arrows */}
+                  <div className="relative z-10 flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#ff5722] animate-pulse" />
+                      <span className="text-xs font-bold uppercase tracking-widest text-[#ff7043] flex items-center gap-2">
+                        <span>Database Spotlight Master</span>
+                        <span>•</span>
+                        <span>{track.languageName || 'Regional'} Vocal Heritage</span>
+                      </span>
                     </div>
-                    <span className="text-xs sm:text-sm font-semibold text-zinc-200">
-                      10M+ <span className="text-zinc-400 font-normal">Listeners this week</span>
-                    </span>
+
+                    {/* Manual Arrow Buttons */}
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleHeroPrev();
+                        }}
+                        className="w-9 h-9 rounded-full bg-black/60 hover:bg-black/90 border border-white/15 flex items-center justify-center text-zinc-300 hover:text-white transition-all backdrop-blur-md shadow-md"
+                        title="Previous Master Track"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleHeroNext();
+                        }}
+                        className="w-9 h-9 rounded-full bg-black/60 hover:bg-black/90 border border-white/15 flex items-center justify-center text-zinc-300 hover:text-white transition-all backdrop-blur-md shadow-md"
+                        title="Next Master Track"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Cursive quote */}
-                  <div className="text-right sm:pr-2">
-                    <p
-                      className="text-xl sm:text-2xl lg:text-3xl font-serif italic text-white/95 tracking-wide font-light flex items-center justify-end gap-2"
-                      style={{ fontFamily: 'Georgia, serif' }}
-                    >
-                      <span>Music Heals Differently</span>
-                      <Heart className="w-5 h-5 text-orange-400 fill-current inline-block animate-pulse" />
+                  {/* Center Content of Slide */}
+                  <div className="relative z-10 my-auto py-6 max-w-2xl space-y-3.5">
+                    <div className="flex items-center gap-2.5">
+                      <span className="px-2.5 py-0.5 rounded-md bg-orange-500/20 border border-orange-500/40 text-orange-300 text-xs font-medium">
+                        {track.genreName || 'Classical'}
+                      </span>
+                      {track.albumTitle && (
+                        <span className="px-2.5 py-0.5 rounded-md bg-white/10 text-zinc-300 text-xs truncate max-w-xs">
+                          {track.albumTitle}
+                        </span>
+                      )}
+                      {track.isArtistVerified && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-blue-400 font-semibold bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">
+                          <Check className="w-3 h-3 stroke-[3]" /> Verified Legend
+                        </span>
+                      )}
+                    </div>
+
+                    <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black font-display tracking-tight text-white drop-shadow-xl leading-tight">
+                      {track.title}
+                    </h1>
+
+                    <div className="flex items-center gap-2.5 text-sm sm:text-base font-semibold text-orange-400">
+                      <span>🎤 {track.artistName}</span>
+                      <span className="text-zinc-500">•</span>
+                      <span className="text-zinc-300 font-normal">
+                        {track.languageName || 'Regional'}
+                      </span>
+                    </div>
+
+                    <p className="text-xs sm:text-sm text-zinc-300/90 leading-relaxed font-normal max-w-xl line-clamp-3">
+                      {track.artistBio ||
+                        (track.albumTitle
+                          ? `Authentic acoustic recording from the verified "${track.albumTitle}" archival release. Mastered directly from regional vocal masters.`
+                          : 'Stream authentic studio recordings preserved with high-fidelity acoustics and real acoustic instrumentation.')}
                     </p>
+
+                    {/* Buttons: Play All + Follow */}
+                    <div className="pt-2 flex items-center gap-4">
+                      <button
+                        onClick={() => handlePlaySong(track)}
+                        className="flex items-center gap-2.5 px-8 py-3 rounded-full bg-[#ff5722] hover:bg-[#ff6a3d] text-white font-bold text-sm shadow-xl shadow-orange-500/30 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        {isCurrentPlaying ? (
+                          <>
+                            <Pause className="w-4 h-4 fill-current" />
+                            <span>Pause</span>
+                          </>
+                        ) : (
+                          <>
+                            <Play className="w-4 h-4 fill-current" />
+                            <span>Listen Now</span>
+                          </>
+                        )}
+                      </button>
+
+                      <button
+                        onClick={() => toggleFollow(track.artistId, track.artistName)}
+                        disabled={isFollowingThis}
+                        className={`flex items-center gap-2 px-6 py-3 rounded-full border text-sm font-semibold backdrop-blur-md transition-all ${
+                          isArtistFollowed
+                            ? 'bg-emerald-500/20 border-emerald-400/50 text-emerald-300'
+                            : 'bg-black/50 hover:bg-black/70 border-white/20 text-zinc-200 hover:text-white'
+                        }`}
+                      >
+                        {isArtistFollowed ? (
+                          <>
+                            <Check className="w-4 h-4 text-emerald-400" />
+                            <span>Following</span>
+                          </>
+                        ) : (
+                          <>
+                            <Heart className="w-4 h-4 text-zinc-400 group-hover:text-red-400" />
+                            <span>Follow Artist</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Bottom of Slide: Real Listen Count + Verified Quality */}
+                  <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4 pt-5 border-t border-white/10">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-orange-500/20 border border-orange-500/40 flex items-center justify-center text-orange-400">
+                        <TrendingUp className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs sm:text-sm font-bold text-white">
+                          {Number(track.playCount || 0).toLocaleString()} Verified Streams
+                        </p>
+                        <p className="text-[11px] text-zinc-400">Direct studio sync from Postgres</p>
+                      </div>
+                    </div>
+
+                    <div className="text-left sm:text-right">
+                      <p
+                        className="text-lg sm:text-xl font-serif italic text-white/90 tracking-wide font-light flex items-center sm:justify-end gap-2"
+                        style={{ fontFamily: 'Georgia, serif' }}
+                      >
+                        <span>Pure Regional Acoustics</span>
+                        <Sparkles className="w-4 h-4 text-orange-400 inline-block" />
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
 
-        {/* SLIDE INDICATOR PILLS (Seamless continuous dot tracking) */}
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
-          {heroTracks.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => handleJumpToDot(i)}
-              className={`transition-all duration-300 rounded-full ${
-                activeDot === i
-                  ? 'w-7 h-1.5 bg-[#ff5722] shadow-[0_0_8px_#ff5722]'
-                  : 'w-2 h-1.5 bg-white/30 hover:bg-white/60'
-              }`}
-              title={`Jump to slide ${i + 1}`}
-            />
-          ))}
+          {/* SLIDE INDICATOR PILLS (Seamless continuous dot tracking) */}
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+            {heroTracks.map((_, i) => (
+              <button
+                key={i}
+                onClick={() => handleJumpToDot(i)}
+                className={`transition-all duration-300 rounded-full ${
+                  currentIndex === i
+                    ? 'w-7 h-1.5 bg-[#ff5722] shadow-[0_0_8px_#ff5722]'
+                    : 'w-2 h-1.5 bg-white/30 hover:bg-white/60'
+                }`}
+                title={`Jump to track ${i + 1}`}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      ) : null}
 
       {/* ────────────────────────────────────────────────────────────
-          3. LATEST & TRENDING SONGS (Loaded Directly from Database)
+          4. TOP TRENDING MASTER TRACKS (Live from Database)
       ──────────────────────────────────────────────────────────── */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-              Latest Master Tracks
-            </h2>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              {latestSongs.length} authentic studio releases live from database
+            <div className="flex items-center gap-2">
+              <Flame className="w-5 h-5 text-orange-500" />
+              <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">
+                Trending Master Tracks
+              </h2>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              Ranked dynamically by verified listener popularity and total streams
             </p>
           </div>
           <Link
-            href="/discover?sortBy=recent"
-            className="text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors"
+            href="/discover?sort=popularity"
+            className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-500 transition-colors"
           >
-            See All ({latestSongs.length}) →
+            Explore All ({catalog?.trending?.length || 0}) →
           </Link>
         </div>
 
-        {/* Real Dynamic Track Cards Grid */}
+        {/* Dynamic Track Cards Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-          {latestSongs.slice(0, 12).map((song) => {
+          {(catalog?.trending || []).slice(0, 12).map((song) => {
             const isCurrentPlaying = currentSong?.id === song.id && isPlaying;
 
             return (
               <div
-                key={song.id}
-                onClick={() => handlePlayHeroTrack(song)}
-                className="group p-3 rounded-2xl bg-[#12141a]/60 hover:bg-[#161822] border border-white/[0.05] hover:border-white/10 transition-all cursor-pointer flex flex-col justify-between shadow-lg"
+                key={`trending-${song.id}`}
+                onClick={() => handlePlaySong(song)}
+                className="group p-3 rounded-2xl bg-white dark:bg-[#141622] hover:bg-zinc-50 dark:hover:bg-[#1b1e2e] border border-black/[0.08] dark:border-white/[0.08] hover:border-orange-500/40 transition-all cursor-pointer flex flex-col justify-between shadow-xs hover:shadow-xl hover:-translate-y-0.5"
               >
                 {/* Artwork with hover play button */}
-                <div className="relative aspect-square rounded-xl overflow-hidden mb-3 bg-zinc-800">
+                <div className="relative aspect-square rounded-xl overflow-hidden mb-3 bg-zinc-100 dark:bg-zinc-800 shadow-xs">
                   <img
                     src={
                       song.artworkUrl ||
-                      'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600'
+                      'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=75'
                     }
                     alt={song.title}
-                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover filter brightness-105 contrast-105 group-hover:scale-105 transition-transform duration-300"
                   />
                   {/* Floating play overlay */}
                   <div
-                    className={`absolute inset-0 bg-black/40 flex items-center justify-center transition-opacity duration-200 ${
+                    className={`absolute inset-0 bg-black/35 flex items-center justify-center transition-opacity duration-200 ${
                       isCurrentPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
                     }`}
                   >
-                    <div className="w-10 h-10 rounded-full bg-[#ff5722] text-white flex items-center justify-center shadow-lg shadow-orange-500/40 ">
+                    <div className="w-10 h-10 rounded-full bg-[#ff5722] text-white flex items-center justify-center shadow-lg shadow-orange-500/40">
                       {isCurrentPlaying ? (
                         <Pause className="w-4 h-4 fill-white" />
                       ) : (
@@ -552,15 +563,22 @@ export default function RootHomePage() {
                 </div>
 
                 <div className="min-w-0">
-                  <p className="text-xs font-bold text-white truncate group-hover:text-orange-400 transition-colors">
+                  <p className="text-xs font-bold text-zinc-900 dark:text-white truncate group-hover:text-orange-500 transition-colors">
                     {song.title}
                   </p>
-                  <p className="text-[11px] text-zinc-400 truncate mt-0.5">
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
                     {song.artistName}
                   </p>
-                  <span className="inline-block mt-1 text-[9px] px-1.5 py-0.5 rounded bg-white/[0.06] text-zinc-400 font-medium">
-                    {song.languageName || 'Regional'}
-                  </span>
+                  <div className="flex items-center justify-between mt-1.5">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/[0.08] text-zinc-600 dark:text-zinc-300 font-medium">
+                      {song.languageName || 'Regional'}
+                    </span>
+                    <span className="text-[10px] text-zinc-400 font-medium">
+                      {Number(song.playCount || 0) > 1000
+                        ? `${(Number(song.playCount) / 1000).toFixed(0)}k plays`
+                        : `${song.playCount || 0} plays`}
+                    </span>
+                  </div>
                 </div>
               </div>
             );
@@ -569,42 +587,107 @@ export default function RootHomePage() {
       </section>
 
       {/* ────────────────────────────────────────────────────────────
-          4. MOOD & GENRE BANNERS (Landscape Rectangular Cards)
+          5. EXPLORE BY REGIONAL HERITAGE & LANGUAGE (Database Synced)
       ──────────────────────────────────────────────────────────── */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white tracking-tight">Explore by Sound & Heritage</h2>
+          <div>
+            <div className="flex items-center gap-2">
+              <Globe2 className="w-5 h-5 text-blue-500" />
+              <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">
+                Regional Linguistic Heritage
+              </h2>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              Original native scripts and live song collections synced from database
+            </p>
+          </div>
           <Link
             href="/discover"
-            className="text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors"
+            className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-500 transition-colors"
           >
-            Explore Catalog →
+            All Languages →
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-          {MOOD_BANNERS.map((banner) => (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+          {(catalog?.languages || []).map((lang) => (
             <Link
-              key={banner.id}
-              href={`/discover?search=${encodeURIComponent(banner.query)}`}
-              className="relative aspect-[16/9] rounded-2xl overflow-hidden p-3.5 flex flex-col justify-end group border border-white/[0.06] shadow-lg hover:border-white/20"
+              key={`lang-${lang.id}`}
+              href={`/discover?language=${encodeURIComponent(lang.code)}`}
+              className="group p-4 rounded-2xl bg-white dark:bg-[#141622] hover:bg-zinc-50 dark:hover:bg-[#1b1e2e] border border-black/[0.08] dark:border-white/[0.08] hover:border-orange-500/40 transition-all flex items-center justify-between shadow-xs hover:shadow-lg"
+            >
+              <div className="min-w-0 pr-2">
+                <p className="text-lg font-black text-zinc-900 dark:text-white group-hover:text-orange-500 transition-colors leading-tight">
+                  {lang.nativeName || lang.name}
+                </p>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5 font-medium">
+                  {lang.name}
+                </p>
+                <p className="text-[10px] text-orange-500 dark:text-orange-400 mt-1 font-semibold">
+                  {lang.songCount} {lang.songCount === 1 ? 'Master' : 'Masters'}
+                </p>
+              </div>
+
+              <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-white/[0.06] group-hover:bg-[#ff5722] flex items-center justify-center transition-colors flex-shrink-0">
+                <Play className="w-3.5 h-3.5 text-zinc-700 dark:text-zinc-200 group-hover:text-white fill-current ml-0.5" />
+              </div>
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────────────────
+          6. EXPLORE BY SOUND & GENRE (Database Synced)
+      ──────────────────────────────────────────────────────────── */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Disc3 className="w-5 h-5 text-purple-500" />
+              <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">
+                Explore Soundscapes & Genres
+              </h2>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              Classical ragas, Sufi mysticism, and folk compositions direct from Postgres
+            </p>
+          </div>
+          <Link
+            href="/discover"
+            className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-500 transition-colors"
+          >
+            All Genres ({catalog?.genres?.length || 0}) →
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+          {(catalog?.genres || []).map((genre) => (
+            <Link
+              key={`genre-${genre.id}`}
+              href={`/discover?genre=${encodeURIComponent(genre.slug)}`}
+              className="relative aspect-[16/10] rounded-2xl overflow-hidden p-4 flex flex-col justify-end group border border-black/[0.08] dark:border-white/[0.08] shadow-md hover:border-orange-500/50 hover:shadow-xl transition-all"
             >
               <img
-                src={banner.image}
-                alt={banner.title}
-                className="absolute inset-0 w-full h-full object-cover"
+                src={genre.artworkUrl}
+                alt={genre.name}
+                loading="lazy"
+                decoding="async"
+                className="absolute inset-0 w-full h-full object-cover filter brightness-105 contrast-105 group-hover:scale-110 transition-transform duration-500"
               />
-              <div className={`absolute inset-0 bg-gradient-to-t ${banner.color}`} />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/20" />
 
               <div className="relative z-10 flex items-end justify-between">
                 <div>
                   <h4 className="text-xs sm:text-sm font-bold text-white leading-tight">
-                    {banner.title}
+                    {genre.name}
                   </h4>
-                  <p className="text-[10px] text-zinc-300 mt-0.5 opacity-90">{banner.subtitle}</p>
+                  <p className="text-[10px] text-zinc-300 mt-0.5 font-medium">
+                    {genre.songCount} {genre.songCount === 1 ? 'Track' : 'Tracks'}
+                  </p>
                 </div>
-                <div className="w-6 h-6 rounded-full bg-white/20 group-hover:bg-[#ff5722] flex items-center justify-center transition-colors">
-                  <Play className="w-3 h-3 fill-white text-white ml-0.5" />
+                <div className="w-7 h-7 rounded-full bg-white/20 group-hover:bg-[#ff5722] flex items-center justify-center transition-colors">
+                  <Play className="w-3.5 h-3.5 fill-white text-white ml-0.5" />
                 </div>
               </div>
             </Link>
@@ -613,41 +696,162 @@ export default function RootHomePage() {
       </section>
 
       {/* ────────────────────────────────────────────────────────────
-          5. TOP ARTISTS FROM DATABASE (Circular Portraits)
+          7. NEW RELEASES & STUDIO DROPS (Live from Database)
       ──────────────────────────────────────────────────────────── */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white tracking-tight">Featured Artists</h2>
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-amber-500" />
+              <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">
+                Recent Studio Releases
+              </h2>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              Latest acoustic master releases added to the catalog
+            </p>
+          </div>
           <Link
-            href="/discover"
-            className="text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors"
+            href="/discover?sort=recent"
+            className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-500 transition-colors"
           >
-            View All Artists →
+            See All New Releases →
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 p-5 rounded-3xl bg-[#12141a]/50 border border-white/[0.05]">
-          {distinctArtists.map((artist, idx) => (
-            <Link
-              key={idx}
-              href={`/discover?search=${encodeURIComponent(artist.name)}`}
-              className="flex flex-col items-center text-center group cursor-pointer"
-            >
-              <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden mb-2.5 border-2 border-transparent group-hover:border-orange-500 transition-all shadow-xl">
-                <img
-                  src={artist.artwork}
-                  alt={artist.name}
-                  className="w-full h-full object-cover"
-                />
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+          {(catalog?.newReleases || []).slice(0, 6).map((song) => {
+            const isCurrentPlaying = currentSong?.id === song.id && isPlaying;
+
+            return (
+              <div
+                key={`new-${song.id}`}
+                onClick={() => handlePlaySong(song)}
+                className="group p-3 rounded-2xl bg-white dark:bg-[#141622] hover:bg-zinc-50 dark:hover:bg-[#1b1e2e] border border-black/[0.08] dark:border-white/[0.08] hover:border-orange-500/40 transition-all cursor-pointer flex flex-col justify-between shadow-xs hover:shadow-xl hover:-translate-y-0.5"
+              >
+                <div className="relative aspect-square rounded-xl overflow-hidden mb-3 bg-zinc-100 dark:bg-zinc-800 shadow-xs">
+                  <img
+                    src={
+                      song.artworkUrl ||
+                      'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&auto=format&fit=crop&q=75'
+                    }
+                    alt={song.title}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover filter brightness-105 contrast-105 group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <div
+                    className={`absolute inset-0 bg-black/35 flex items-center justify-center transition-opacity duration-200 ${
+                      isCurrentPlaying ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-[#ff5722] text-white flex items-center justify-center shadow-lg shadow-orange-500/40">
+                      {isCurrentPlaying ? (
+                        <Pause className="w-4 h-4 fill-white" />
+                      ) : (
+                        <Play className="w-4 h-4 fill-white ml-0.5" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-zinc-900 dark:text-white truncate group-hover:text-orange-500 transition-colors">
+                    {song.title}
+                  </p>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate mt-0.5">
+                    {song.artistName}
+                  </p>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-white/[0.08] text-zinc-600 dark:text-zinc-300 font-medium">
+                      {song.languageName || 'Regional'}
+                    </span>
+                    <span className="text-[10px] text-orange-500 font-semibold">New</span>
+                  </div>
+                </div>
               </div>
-              <p className="text-xs sm:text-sm font-bold text-white truncate max-w-[120px] group-hover:text-orange-400 transition-colors">
-                {artist.name}
-              </p>
-              <span className="text-[11px] text-zinc-400 truncate max-w-[110px]">
-                {artist.genre}
-              </span>
-            </Link>
-          ))}
+            );
+          })}
+        </div>
+      </section>
+
+      {/* ────────────────────────────────────────────────────────────
+          8. VERIFIED LEGENDS & TOP ARTISTS (Directly from Postgres)
+      ──────────────────────────────────────────────────────────── */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-orange-500" />
+              <h2 className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-white tracking-tight">
+                Featured Vocal Legends & Artists
+              </h2>
+            </div>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              Masters of Indian classical, devotional, and indigenous folk traditions
+            </p>
+          </div>
+          <Link
+            href="/discover"
+            className="text-xs font-semibold text-orange-600 dark:text-orange-400 hover:text-orange-500 transition-colors"
+          >
+            All Vocal Masters →
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4 p-5 rounded-3xl bg-white dark:bg-[#12141e] border border-black/[0.08] dark:border-white/[0.08] shadow-xs">
+          {(catalog?.topArtists || []).map((artist) => {
+            const isFollowed = !!followingMap[artist.id] || !!followingMap[artist.name];
+
+            return (
+              <div
+                key={`artist-${artist.id}`}
+                className="flex flex-col items-center text-center group cursor-pointer"
+                onClick={() => router.push(`/discover?search=${encodeURIComponent(artist.name)}`)}
+              >
+                <div className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden mb-2.5 border-2 border-transparent group-hover:border-orange-500 transition-all shadow-md">
+                  <img
+                    src={artist.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400'}
+                    alt={artist.name}
+                    loading="lazy"
+                    decoding="async"
+                    className="w-full h-full object-cover filter brightness-105 contrast-105 group-hover:scale-105 transition-transform duration-300"
+                  />
+                  {artist.isVerified && (
+                    <div
+                      className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center border-2 border-white dark:border-[#12141e] shadow-md"
+                      title="Verified Maestro"
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-white truncate max-w-[125px] group-hover:text-orange-500 transition-colors">
+                  {artist.name}
+                </p>
+
+                <p className="text-[11px] text-zinc-500 dark:text-zinc-400 truncate max-w-[120px] mt-0.5">
+                  {artist.genreName || `${artist.songCount} Tracks`}
+                </p>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    toggleFollow(artist.id, artist.name);
+                  }}
+                  className={`mt-2 text-[10px] font-semibold px-3 py-1 rounded-full transition-all border ${
+                    isFollowed
+                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500'
+                      : 'bg-zinc-100 dark:bg-white/[0.08] hover:bg-orange-500 hover:text-white border-transparent text-zinc-700 dark:text-zinc-300'
+                  }`}
+                >
+                  {isFollowed ? 'Following' : 'Follow'}
+                </button>
+              </div>
+            );
+          })}
         </div>
       </section>
     </div>

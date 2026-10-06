@@ -23,8 +23,9 @@ export default function PlaylistDetailPage({ params }: { params: { id: string } 
       const res = await fetch(`/api/v1/playlists/${params.id}`);
       if (res.ok) {
         const json = await res.json();
-        setPlaylist(json.data.playlist);
-        setSongs(json.data.songs || []);
+        const pl = json.data?.playlist || json.data;
+        setPlaylist(pl);
+        setSongs(json.data?.songs || pl?.songs || []);
       }
     } catch (e) {
       console.error('Playlist load error', e);
