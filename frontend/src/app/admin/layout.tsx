@@ -7,15 +7,22 @@ import {
   LayoutDashboard,
   Users,
   UserCheck,
+  Music,
+  Mic2,
   FileMusic,
+  Trophy,
+  Sparkles,
+  Scale,
   ShieldAlert,
+  Wallet,
   Coins,
+  Flag,
+  Radio,
+  UserCog,
   ScrollText,
   Settings,
-  Scale,
   ArrowLeft,
   Shield,
-  Sparkles,
   AlertCircle,
   LogIn,
 } from 'lucide-react';
@@ -29,21 +36,50 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const isAdmin =
     Array.isArray(user?.roles) &&
-    (user.roles.includes('ADMIN') ||
-      user.roles.includes('SUPER_ADMIN') ||
-      user.roles.includes('FINANCE') ||
-      user.roles.includes('MODERATOR'));
+    ((user.roles as string[]).includes('ADMIN') ||
+      (user.roles as string[]).includes('SUPER_ADMIN') ||
+      (user.roles as string[]).includes('FINANCE') ||
+      (user.roles as string[]).includes('MODERATOR') ||
+      (user.roles as string[]).includes('CONTENT_MANAGER'));
 
-  const navItems = [
-    { name: 'Overview', href: '/admin', icon: LayoutDashboard },
-    { name: 'Users & Signups', href: '/admin/users', icon: Users },
-    { name: 'Auditions & Creators', href: '/admin/applications', icon: UserCheck },
-    { name: 'Content Moderation', href: '/admin/content-review', icon: FileMusic },
-    { name: 'Rights & Licensing', href: '/admin/rights', icon: Scale },
-    { name: 'Anti-Fraud Cockpit', href: '/admin/fraud', icon: ShieldAlert },
-    { name: 'Payout Settlements', href: '/admin/payouts', icon: Coins },
-    { name: 'Audit Ledger', href: '/admin/audit-logs', icon: ScrollText },
-    { name: 'System Settings', href: '/admin/settings', icon: Settings },
+  const navSections = [
+    {
+      title: 'Core Operations',
+      items: [
+        { name: 'Overview', href: '/admin', icon: LayoutDashboard },
+        { name: 'Users & Signups', href: '/admin/users', icon: Users },
+        { name: 'Auditions & Creators', href: '/admin/applications', icon: UserCheck },
+      ],
+    },
+    {
+      title: 'Music & Content Engine',
+      items: [
+        { name: 'Master Music Catalog', href: '/admin/catalog', icon: Music },
+        { name: 'Karaoke & Synced Lyrics', href: '/admin/lyrics', icon: Mic2 },
+        { name: 'Content Moderation', href: '/admin/content-review', icon: FileMusic },
+        { name: 'Competitions & Challenges', href: '/admin/competitions', icon: Trophy },
+        { name: 'Editorial & Playlists', href: '/admin/curation', icon: Sparkles },
+      ],
+    },
+    {
+      title: 'Governance & Economics',
+      items: [
+        { name: 'Rights & Licensing', href: '/admin/rights', icon: Scale },
+        { name: 'Anti-Fraud Cockpit', href: '/admin/fraud', icon: ShieldAlert },
+        { name: 'Creator Wallets & Ledger', href: '/admin/wallets', icon: Wallet },
+        { name: 'Payout Settlements', href: '/admin/payouts', icon: Coins },
+        { name: 'Community Reports', href: '/admin/reports', icon: Flag },
+      ],
+    },
+    {
+      title: 'Platform & Team',
+      items: [
+        { name: 'Broadcast Announcements', href: '/admin/broadcasts', icon: Radio },
+        { name: 'Staff RBAC & Team', href: '/admin/team', icon: UserCog },
+        { name: 'Audit Ledger', href: '/admin/audit-logs', icon: ScrollText },
+        { name: 'System Settings', href: '/admin/settings', icon: Settings },
+      ],
+    },
   ];
 
   // Route directly to /admin/login if not authenticated
@@ -121,29 +157,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       <div className="flex-1 flex overflow-hidden">
         {/* Admin Navigation Sidebar */}
-        <aside className="w-64 bg-midnight-900/60 border-r border-white/5 flex flex-col flex-shrink-0">
-          <div className="p-4 space-y-1">
-            <p className="text-[10px] uppercase font-bold tracking-widest text-gray-400 px-3 pb-2">
-              Management Cockpits
-            </p>
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all ${
-                    isActive
-                      ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30 shadow-sm'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-rose-400' : 'text-gray-400'}`} />
-                  <span>{item.name}</span>
-                </Link>
-              );
-            })}
+        <aside className="w-64 bg-midnight-900/60 border-r border-white/5 flex flex-col flex-shrink-0 overflow-y-auto">
+          <div className="p-4 space-y-5">
+            {navSections.map((section, sIdx) => (
+              <div key={sIdx} className="space-y-1">
+                <p className="text-[10px] uppercase font-bold tracking-widest text-gray-500 px-3 pb-1">
+                  {section.title}
+                </p>
+                {section.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = pathname === item.href;
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={`flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all ${
+                        isActive
+                          ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30 shadow-sm'
+                          : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      <Icon className={`w-4 h-4 ${isActive ? 'text-rose-400' : 'text-gray-400'}`} />
+                      <span>{item.name}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ))}
           </div>
 
           <div className="mt-auto p-4 border-t border-white/5">
@@ -152,7 +192,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <span className="text-gray-300 font-medium">Compliance Guard</span>
                 <span className="text-emerald-400 font-bold">ACTIVE</span>
               </div>
-              <p className="text-[10px] text-gray-400 leading-relaxed">
+              <p className="text-[10px] text-gray-500 leading-relaxed">
                 Schema-enforced rights verification & anti-fraud velocity heuristics active.
               </p>
             </div>

@@ -10,25 +10,38 @@ import { Song, LyricLine, LyricSyncStatus } from '@talent5/types';
 export function findActiveLyricIndex(
   currentMs: number,
   lines: LyricLine[],
-  isSynced: boolean
+  isSynced: boolean,
+  anticipationMs: number = 120
 ): number {
   if (!isSynced || !lines || lines.length === 0) return -1;
 
+  const adjustedMs = currentMs + anticipationMs;
+
   // Instrumental intro before first lyric starts
-  if (currentMs < lines[0].startTimeMs) return -1;
+  if (adjustedMs < lines[0].startTimeMs) return -1;
 
   // Instrumental outro after last lyric completes
-  if (currentMs >= lines[lines.length - 1].endTimeMs) return -1;
+  if (currentMs >= lines[lines.length - 1].endTimeMs + 400) return -1;
 
-  // Direct interval match
+  // Direct interval match (active singing window)
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    if (currentMs >= line.startTimeMs && currentMs < line.endTimeMs) {
+    if (adjustedMs >= line.startTimeMs && currentMs <= line.endTimeMs) {
       return i;
     }
   }
 
-  // During instrumental gaps between sung lines, do not falsely highlight previous line
+  // Handle tiny micro-gaps between consecutive lines without jarring flicker
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (currentMs >= lines[i].endTimeMs && adjustedMs < lines[i + 1].startTimeMs) {
+      // If gap is shorter than 450ms, hold line i for smooth transition
+      if (lines[i + 1].startTimeMs - lines[i].endTimeMs < 450) {
+        return i;
+      }
+      return -1; // Genuine instrumental break
+    }
+  }
+
   return -1;
 }
 
@@ -320,52 +333,74 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Optimized playback sync timer: only run high-frequency (100ms) interval when lyrics or expanded modal is open!
-  // Otherwise, standard HTML5 audio onTimeUpdate event smoothly handles progress (~250ms), saving massive CPU overhead.
+  // 60FPS frame-accurate lyrics tracking when lyrics or modal is active; throttled telemetry when in background
   useEffect(() => {
     if (!isPlaying) return;
+    let animId: number | null = null;
+    let telemetryInterval: NodeJS.Timeout | null = null;
 
-    // Telemetry ticker (low-frequency check)
-    const telemetryInterval = setInterval(() => {
-      const audio = audioRef.current;
-      if (!audio || audio.paused) return;
-      const cTime = audio.currentTime;
-      const cSong = currentSongRef.current;
-      if (cSong && cTime >= 30 && !qualifiedStreamLoggedRef.current[cSong.id]) {
-        qualifiedStreamLoggedRef.current[cSong.id] = true;
-        fetch('/api/v1/telemetry/play', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            songId: cSong.id,
-            durationPlayedSeconds: Math.round(cTime),
-          }),
-        }).catch(() => {});
-      }
-    }, 1000);
-
-    let lyricsInterval: NodeJS.Timeout | null = null;
     if (isLyricsOpen || isExpandedOpen) {
-      lyricsInterval = setInterval(() => {
+      let lastTelemetryCheck = 0;
+      const syncTick = () => {
+        const audio = audioRef.current;
+        if (audio && !audio.paused) {
+          const cTime = audio.currentTime;
+          setCurrentTime(cTime);
+
+          // 30-second qualified stream telemetry detection (checked throttled)
+          const now = Date.now();
+          if (now - lastTelemetryCheck > 1000) {
+            lastTelemetryCheck = now;
+            const cSong = currentSongRef.current;
+            if (cSong && cTime >= 30 && !qualifiedStreamLoggedRef.current[cSong.id]) {
+              qualifiedStreamLoggedRef.current[cSong.id] = true;
+              fetch('/api/v1/telemetry/play', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  songId: cSong.id,
+                  durationPlayedSeconds: Math.round(cTime),
+                }),
+              }).catch(() => {});
+            }
+          }
+
+          const isSynced = currentLyricsSyncStatusRef.current === 'SYNCED';
+          const lines = currentLyricsLinesRef.current;
+          const lineIdx = findActiveLyricIndex(cTime * 1000, lines, isSynced);
+          if (lineIdx !== activeLyricIndexRef.current) {
+            activeLyricIndexRef.current = lineIdx;
+            setActiveLyricIndex(lineIdx);
+          }
+        }
+        animId = requestAnimationFrame(syncTick);
+      };
+
+      animId = requestAnimationFrame(syncTick);
+    } else {
+      // Standard playback without open lyrics: check telemetry every 1s without 60FPS re-render churn
+      telemetryInterval = setInterval(() => {
         const audio = audioRef.current;
         if (!audio || audio.paused) return;
-
         const cTime = audio.currentTime;
-        setCurrentTime(cTime);
-
-        const isSynced = currentLyricsSyncStatusRef.current === 'SYNCED';
-        const lines = currentLyricsLinesRef.current;
-        const lineIdx = findActiveLyricIndex(cTime * 1000, lines, isSynced);
-        if (lineIdx !== activeLyricIndexRef.current) {
-          activeLyricIndexRef.current = lineIdx;
-          setActiveLyricIndex(lineIdx);
+        const cSong = currentSongRef.current;
+        if (cSong && cTime >= 30 && !qualifiedStreamLoggedRef.current[cSong.id]) {
+          qualifiedStreamLoggedRef.current[cSong.id] = true;
+          fetch('/api/v1/telemetry/play', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              songId: cSong.id,
+              durationPlayedSeconds: Math.round(cTime),
+            }),
+          }).catch(() => {});
         }
-      }, 100);
+      }, 1000);
     }
 
     return () => {
-      clearInterval(telemetryInterval);
-      if (lyricsInterval) clearInterval(lyricsInterval);
+      if (animId) cancelAnimationFrame(animId);
+      if (telemetryInterval) clearInterval(telemetryInterval);
     };
   }, [isPlaying, isLyricsOpen, isExpandedOpen]);
 

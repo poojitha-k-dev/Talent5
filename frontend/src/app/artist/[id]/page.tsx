@@ -42,11 +42,14 @@ export default function ArtistProfilePage({ params }: { params: { id: string } }
         const res = await fetch(`/api/v1/catalog/artists/${params.id}`);
         if (res.ok) {
           const json = await res.json();
-          setArtist(json.data.artist);
-          setSongs(json.data.songs || []);
-          setAlbums(json.data.albums || []);
-          setDesiContent(json.data.desiContent || []);
-          setFollowersCount(parseInt(json.data.artist.followersCount || '0', 10));
+          const artistObj = json.data?.artist || json.data || null;
+          setArtist(artistObj);
+          setSongs(json.data?.songs || []);
+          setAlbums(json.data?.albums || []);
+          setDesiContent(json.data?.desiContent || []);
+          if (artistObj) {
+            setFollowersCount(parseInt(artistObj.followersCount || artistObj.followers_count || '0', 10));
+          }
         }
       } catch (e) {
         console.error('Artist fetch error', e);

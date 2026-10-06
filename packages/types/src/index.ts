@@ -100,6 +100,7 @@ export interface Song {
   languageName?: string;
   genreId: string;
   genreName?: string;
+  genreSlug?: string;
   mood?: string;
   durationSeconds: number;
   audioUrl: string;
