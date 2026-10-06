@@ -9,7 +9,6 @@ import { MobileNav } from '@/components/layout/MobileNav';
 import { GlobalPlayer } from '@/components/player/GlobalPlayer';
 import { PWAInstallPrompt } from '@/components/ui/PWAInstallPrompt';
 import { LandingBackground } from '@/components/layout/LandingBackground';
-import { RouteProgressBar } from '@/components/layout/RouteProgressBar';
 
 export const metadata: Metadata = {
   title: 'Talent5 — Real Voices. Original Stories. Desi Talent.',
@@ -50,7 +49,6 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className="bg-[#f8f6f1] dark:bg-[#0e1017] text-zinc-900 dark:text-[var(--text-primary)] min-h-screen antialiased selection:bg-orange-500 selection:text-white overflow-hidden">
-        <RouteProgressBar />
         <ThemeProvider>
           <AuthProvider>
             <AudioProvider>
