@@ -1370,7 +1370,7 @@ router.get('/lyrics/overview', async (req: Request, res: Response) => {
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
     const status = typeof req.query.status === 'string' ? req.query.status : undefined;
     const page = Math.max(parseInt((req.query.page as string) || '1', 10), 1);
-    const limit = Math.min(parseInt((req.query.limit as string) || '40', 10), 100);
+    const limit = Math.min(parseInt((req.query.limit as string) || '10', 10), 100);
     const offset = (page - 1) * limit;
 
     const [statsRes, countRes, listRes] = await Promise.all([
