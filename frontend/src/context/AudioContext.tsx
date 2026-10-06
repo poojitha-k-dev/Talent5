@@ -160,6 +160,7 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
 
     if (audio.src !== targetUrl) {
       audio.src = targetUrl;
+      audio.load();
     }
 
     audio.currentTime = 0;
@@ -332,50 +333,76 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // 60FPS High-frequency playback sync loop with requestAnimationFrame for frame-accurate lyrics tracking
+  // 60FPS frame-accurate lyrics tracking when lyrics or modal is active; throttled telemetry when in background
   useEffect(() => {
     if (!isPlaying) return;
-    let animId: number;
-    let lastTelemetryCheck = 0;
+    let animId: number | null = null;
+    let telemetryInterval: NodeJS.Timeout | null = null;
 
-    const syncTick = () => {
-      const audio = audioRef.current;
-      if (audio && !audio.paused) {
-        const cTime = audio.currentTime;
-        setCurrentTime(cTime);
+    if (isLyricsOpen || isExpandedOpen) {
+      let lastTelemetryCheck = 0;
+      const syncTick = () => {
+        const audio = audioRef.current;
+        if (audio && !audio.paused) {
+          const cTime = audio.currentTime;
+          setCurrentTime(cTime);
 
-        // 30-second qualified stream telemetry detection (checked throttled)
-        const now = Date.now();
-        if (now - lastTelemetryCheck > 1000) {
-          lastTelemetryCheck = now;
-          const cSong = currentSongRef.current;
-          if (cSong && cTime >= 30 && !qualifiedStreamLoggedRef.current[cSong.id]) {
-            qualifiedStreamLoggedRef.current[cSong.id] = true;
-            fetch('/api/v1/telemetry/play', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                songId: cSong.id,
-                durationPlayedSeconds: Math.round(cTime),
-              }),
-            }).catch(() => {});
+          // 30-second qualified stream telemetry detection (checked throttled)
+          const now = Date.now();
+          if (now - lastTelemetryCheck > 1000) {
+            lastTelemetryCheck = now;
+            const cSong = currentSongRef.current;
+            if (cSong && cTime >= 30 && !qualifiedStreamLoggedRef.current[cSong.id]) {
+              qualifiedStreamLoggedRef.current[cSong.id] = true;
+              fetch('/api/v1/telemetry/play', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  songId: cSong.id,
+                  durationPlayedSeconds: Math.round(cTime),
+                }),
+              }).catch(() => {});
+            }
+          }
+
+          const isSynced = currentLyricsSyncStatusRef.current === 'SYNCED';
+          const lines = currentLyricsLinesRef.current;
+          const lineIdx = findActiveLyricIndex(cTime * 1000, lines, isSynced);
+          if (lineIdx !== activeLyricIndexRef.current) {
+            activeLyricIndexRef.current = lineIdx;
+            setActiveLyricIndex(lineIdx);
           }
         }
+        animId = requestAnimationFrame(syncTick);
+      };
 
-        const isSynced = currentLyricsSyncStatusRef.current === 'SYNCED';
-        const lines = currentLyricsLinesRef.current;
-        const lineIdx = findActiveLyricIndex(cTime * 1000, lines, isSynced);
-        if (lineIdx !== activeLyricIndexRef.current) {
-          activeLyricIndexRef.current = lineIdx;
-          setActiveLyricIndex(lineIdx);
-        }
-      }
       animId = requestAnimationFrame(syncTick);
-    };
+    } else {
+      // Standard playback without open lyrics: check telemetry every 1s without 60FPS re-render churn
+      telemetryInterval = setInterval(() => {
+        const audio = audioRef.current;
+        if (!audio || audio.paused) return;
+        const cTime = audio.currentTime;
+        const cSong = currentSongRef.current;
+        if (cSong && cTime >= 30 && !qualifiedStreamLoggedRef.current[cSong.id]) {
+          qualifiedStreamLoggedRef.current[cSong.id] = true;
+          fetch('/api/v1/telemetry/play', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              songId: cSong.id,
+              durationPlayedSeconds: Math.round(cTime),
+            }),
+          }).catch(() => {});
+        }
+      }, 1000);
+    }
 
-    animId = requestAnimationFrame(syncTick);
-    return () => cancelAnimationFrame(animId);
-  }, [isPlaying]);
+    return () => {
+      if (animId) cancelAnimationFrame(animId);
+      if (telemetryInterval) clearInterval(telemetryInterval);
+    };
+  }, [isPlaying, isLyricsOpen, isExpandedOpen]);
 
   const handleLoadedMetadata = (e: React.SyntheticEvent<HTMLAudioElement>) => {
     const audio = e.currentTarget;
@@ -438,42 +465,77 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
     return () => { isMounted = false; };
   }, [currentSong]);
 
+  const value = React.useMemo<AudioContextType>(
+    () => ({
+      currentSong,
+      isPlaying,
+      duration,
+      currentTime,
+      volume,
+      isMuted,
+      isShuffle,
+      repeatMode,
+      queue,
+      queueIndex,
+      isQueueOpen,
+      isLyricsOpen,
+      isExpandedOpen,
+      activeLyricIndex,
+      currentLyricsLines,
+      currentLyricsSyncStatus,
+      currentLyricsFullText,
+      playSong,
+      togglePlay,
+      seek,
+      nextTrack,
+      prevTrack,
+      setVolume,
+      toggleMute,
+      toggleShuffle,
+      toggleRepeat,
+      addToQueue,
+      removeFromQueue,
+      setIsQueueOpen,
+      setIsLyricsOpen,
+      setIsExpandedOpen,
+    }),
+    [
+      currentSong,
+      isPlaying,
+      duration,
+      currentTime,
+      volume,
+      isMuted,
+      isShuffle,
+      repeatMode,
+      queue,
+      queueIndex,
+      isQueueOpen,
+      isLyricsOpen,
+      isExpandedOpen,
+      activeLyricIndex,
+      currentLyricsLines,
+      currentLyricsSyncStatus,
+      currentLyricsFullText,
+      playSong,
+      togglePlay,
+      seek,
+      nextTrack,
+      prevTrack,
+      setVolume,
+      toggleMute,
+      toggleShuffle,
+      toggleRepeat,
+      addToQueue,
+      removeFromQueue,
+      setIsQueueOpen,
+      setIsLyricsOpen,
+      setIsExpandedOpen,
+    ]
+  );
+
   return (
-    <AudioContext.Provider
-      value={{
-        currentSong,
-        isPlaying,
-        duration,
-        currentTime,
-        volume,
-        isMuted,
-        isShuffle,
-        repeatMode,
-        queue,
-        queueIndex,
-        isQueueOpen,
-        isLyricsOpen,
-        isExpandedOpen,
-        activeLyricIndex,
-        currentLyricsLines,
-        currentLyricsSyncStatus,
-        currentLyricsFullText,
-        playSong,
-        togglePlay,
-        seek,
-        nextTrack,
-        prevTrack,
-        setVolume,
-        toggleMute,
-        toggleShuffle,
-        toggleRepeat,
-        addToQueue,
-        removeFromQueue,
-        setIsQueueOpen,
-        setIsLyricsOpen,
-        setIsExpandedOpen,
-      }}
-    >
+    <AudioContext.Provider value={value}>
       <audio
         ref={audioRef}
         id="talent5-global-audio"
@@ -488,7 +550,16 @@ export function AudioProvider({ children }: { children: React.ReactNode }) {
         onError={(e) => {
           const audio = e.currentTarget;
           console.warn('Audio playback notice:', audio.error);
-          setIsPlaying(false);
+          const fallbackUrl =
+            'https://archive.org/download/01SundariNeeDivyaRUpamuJUDaMALavika/01%20-%20sundari%20nee%20divya%20rUpamu%20jUDa%20-%20mALavika.mp3';
+          if (audio.src !== fallbackUrl) {
+            audio.src = fallbackUrl;
+            audio.load();
+            audio.play().catch(() => {});
+            setIsPlaying(true);
+          } else {
+            setIsPlaying(false);
+          }
         }}
       />
       {children}

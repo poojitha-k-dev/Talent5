@@ -204,15 +204,6 @@ export const Navbar: React.FC = () => {
             </div>
           ) : (
             <div className="flex items-center gap-2">
-              <Link
-                href="/admin/login"
-                prefetch={false}
-                className="hidden sm:inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-rose-600 dark:text-rose-400/90 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-500/10 rounded-lg border border-transparent hover:border-rose-500/20 transition-all"
-                title="Admin Command Center Gateway"
-              >
-                <Shield className="w-3.5 h-3.5" />
-                <span>Admin</span>
-              </Link>
               <Link href="/login">
                 <Button variant="secondary" size="sm" className="gap-1.5 text-xs font-medium">
                   <LogIn className="w-3.5 h-3.5" /> Sign In

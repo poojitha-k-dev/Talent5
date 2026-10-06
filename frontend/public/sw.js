@@ -2,6 +2,31 @@
 // TALENT5 SERVICE WORKER (PWA & OFFLINE CACHE)
 // ==========================================
 
+// In development / localhost: bypass completely, clear all caches, and self-unregister
+const isLocalhost =
+  typeof self !== 'undefined' &&
+  self.location &&
+  (self.location.hostname === 'localhost' ||
+    self.location.hostname === '127.0.0.1' ||
+    self.location.hostname.endsWith('.local'));
+
+if (isLocalhost) {
+  self.addEventListener('install', () => self.skipWaiting());
+  self.addEventListener('activate', (event) => {
+    event.waitUntil(
+      caches
+        .keys()
+        .then((keys) => Promise.all(keys.map((k) => caches.delete(k))))
+        .then(() => self.registration.unregister())
+        .then(() => self.clients.claim())
+    );
+  });
+  self.addEventListener('fetch', () => {
+    // Direct network pass-through, no caching in dev
+    return;
+  });
+}
+
 const CACHE_NAME = 'talent5-cache-v3';
 const STATIC_ASSETS = [
   '/',
@@ -14,6 +39,7 @@ const STATIC_ASSETS = [
 
 // Install Event
 self.addEventListener('install', (event) => {
+  if (isLocalhost) return;
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(STATIC_ASSETS);

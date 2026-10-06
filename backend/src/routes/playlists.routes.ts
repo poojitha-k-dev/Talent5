@@ -64,15 +64,87 @@ router.get('/:id', async (req: Request, res: Response) => {
     if (playlistRes.rows.length === 0) return res.status(404).json({ success: false, message: 'Playlist not found' });
 
     const songsRes = await query(
-      `SELECT s.*, ps.position, a.name as "artistName"
+      `SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds",
+              s.audio_url as "audioUrl", s.artwork_url as "artworkUrl",
+              s.play_count as "playCount", s.valid_likes_count as "validLikesCount",
+              ps.position, a.id as "artistId", a.name as "artistName",
+              l.name as "languageName", g.name as "genreName"
        FROM playlist_songs ps
        JOIN songs s ON ps.song_id = s.id
        JOIN artists a ON s.artist_id = a.id
+       LEFT JOIN languages l ON s.language_id = l.id
+       LEFT JOIN genres g ON s.genre_id = g.id
        WHERE ps.playlist_id = $1 ORDER BY ps.position ASC`,
       [req.params.id]
     );
 
-    return res.status(200).json({ success: true, data: { ...playlistRes.rows[0], songs: songsRes.rows } });
+    const playlistObj = playlistRes.rows[0];
+    return res.status(200).json({
+      success: true,
+      data: {
+        ...playlistObj,
+        playlist: playlistObj,
+        songs: songsRes.rows,
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// POST /api/v1/playlists/:id/songs
+router.post('/:id/songs', async (req: Request, res: Response) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
+
+    const { songId } = req.body;
+    if (!songId) return res.status(400).json({ success: false, message: 'songId required' });
+
+    // Verify ownership
+    const plRes = await query('SELECT user_id FROM playlists WHERE id = $1', [req.params.id]);
+    if (plRes.rows.length === 0) return res.status(404).json({ success: false, message: 'Playlist not found' });
+    if (plRes.rows[0].user_id !== user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized to edit this playlist' });
+    }
+
+    const posRes = await query('SELECT COALESCE(MAX(position), 0) + 1 as "nextPos" FROM playlist_songs WHERE playlist_id = $1', [req.params.id]);
+    const nextPos = posRes.rows[0].nextPos;
+
+    await query(
+      'INSERT INTO playlist_songs (playlist_id, song_id, position) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+      [req.params.id, songId, nextPos]
+    );
+
+    return res.status(200).json({ success: true, message: 'Song added to playlist' });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// DELETE /api/v1/playlists/:id
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const user = await getUserFromRequest(req);
+    if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
+
+    const plRes = await query('SELECT user_id FROM playlists WHERE id = $1', [req.params.id]);
+    if (plRes.rows.length === 0) return res.status(404).json({ success: false, message: 'Playlist not found' });
+    if (plRes.rows[0].user_id !== user.id) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    const songId = req.query.songId as string;
+    if (songId) {
+      // Remove specific song from playlist
+      await query('DELETE FROM playlist_songs WHERE playlist_id = $1 AND song_id = $2', [req.params.id, songId]);
+      return res.status(200).json({ success: true, message: 'Song removed from playlist' });
+    }
+
+    // Delete entire playlist
+    await query('DELETE FROM playlist_songs WHERE playlist_id = $1', [req.params.id]);
+    await query('DELETE FROM playlists WHERE id = $1', [req.params.id]);
+    return res.status(200).json({ success: true, message: 'Playlist deleted successfully' });
   } catch (err: any) {
     return res.status(500).json({ success: false, message: err.message });
   }
