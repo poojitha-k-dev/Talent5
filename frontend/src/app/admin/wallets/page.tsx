@@ -49,8 +49,8 @@ interface RewardRules {
 }
 
 export default function AdminWalletsPage() {
-  const { user } = useAuth();
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const { user, token: authToken, isLoading: authLoading } = useAuth();
+  const token = authToken || (typeof window !== 'undefined' ? (localStorage.getItem('talent5_token') || localStorage.getItem('token')) : null);
 
   const [wallets, setWallets] = useState<CreatorWallet[]>([]);
   const [stats, setStats] = useState<any>(null);
@@ -81,10 +81,15 @@ export default function AdminWalletsPage() {
   });
 
   const fetchWallets = async () => {
+    const t = token;
+    if (!t) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch(`/api/v1/admin/wallets?search=${encodeURIComponent(search)}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${t}` },
       });
       const data = await res.json();
       if (data.success) {
@@ -99,9 +104,11 @@ export default function AdminWalletsPage() {
   };
 
   const fetchRewardRules = async () => {
+    const t = token;
+    if (!t) return;
     try {
       const res = await fetch('/api/v1/admin/reward-rules', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${t}` },
       });
       const data = await res.json();
       if (data.success && data.data) {
@@ -122,8 +129,10 @@ export default function AdminWalletsPage() {
     if (token) {
       fetchWallets();
       fetchRewardRules();
+    } else if (!authLoading) {
+      setLoading(false);
     }
-  }, [token]);
+  }, [token, authLoading]);
 
   const viewTransactions = async (wallet: CreatorWallet) => {
     setSelectedWallet(wallet);

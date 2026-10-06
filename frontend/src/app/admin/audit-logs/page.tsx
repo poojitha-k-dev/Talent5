@@ -35,6 +35,14 @@ export default function AdminAuditLogsPage() {
   const [actionSearch, setActionSearch] = useState('');
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
 
+  const getAuthHeaders = () => {
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('talent5_token') || localStorage.getItem('token')) : null;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
+
   const fetchLogs = async () => {
     setLoading(true);
     try {
@@ -42,7 +50,7 @@ export default function AdminAuditLogsPage() {
       if (entityFilter !== 'ALL') url.searchParams.set('entity', entityFilter);
       if (actionSearch.trim()) url.searchParams.set('action', actionSearch.trim());
 
-      const res = await fetch(url.toString());
+      const res = await fetch(url.toString(), { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) {
         setLogs(json.data);

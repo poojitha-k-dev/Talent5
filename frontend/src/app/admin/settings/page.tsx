@@ -30,10 +30,18 @@ export default function AdminSettingsPage() {
   const [maxUploadMb, setMaxUploadMb] = useState('200');
   const [fraudThreshold, setFraudThreshold] = useState('75');
 
+  const getAuthHeaders = () => {
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('talent5_token') || localStorage.getItem('token')) : null;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
+
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const res = await fetch('/api/v1/admin/settings');
+      const res = await fetch('/api/v1/admin/settings', { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) {
         const { rewardRule, systemSettings } = json.data;
@@ -75,7 +83,7 @@ export default function AdminSettingsPage() {
     try {
       const res = await fetch('/api/v1/admin/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           rewardRule: {
             id: ruleId,

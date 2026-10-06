@@ -44,8 +44,8 @@ interface LyricLine {
 }
 
 export default function AdminLyricsStudioPage() {
-  const { user } = useAuth();
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const { user, token: authToken, isLoading: authLoading } = useAuth();
+  const token = authToken || (typeof window !== 'undefined' ? (localStorage.getItem('talent5_token') || localStorage.getItem('token')) : null);
 
   const [songs, setSongs] = useState<SongLyricItem[]>([]);
   const [stats, setStats] = useState<any>(null);
@@ -69,6 +69,11 @@ export default function AdminLyricsStudioPage() {
   const [activeLineIndex, setActiveLineIndex] = useState<number | null>(null);
 
   const fetchOverview = async () => {
+    const t = token;
+    if (!t) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -77,7 +82,7 @@ export default function AdminLyricsStudioPage() {
       params.append('limit', '100');
 
       const res = await fetch(`/api/v1/admin/lyrics/overview?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${t}` },
       });
       const data = await res.json();
       if (data.success) {
@@ -95,9 +100,11 @@ export default function AdminLyricsStudioPage() {
   };
 
   const loadSongLyrics = async (songId: string) => {
+    const t = token;
+    if (!t) return;
     try {
       const res = await fetch(`/api/v1/admin/lyrics/song/${songId}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${t}` },
       });
       const data = await res.json();
       if (data.success) {
@@ -128,8 +135,10 @@ export default function AdminLyricsStudioPage() {
   useEffect(() => {
     if (token) {
       fetchOverview();
+    } else if (!authLoading) {
+      setLoading(false);
     }
-  }, [token]);
+  }, [token, authLoading]);
 
   // Audio time update handler
   const handleTimeUpdate = () => {

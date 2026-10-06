@@ -59,6 +59,14 @@ export default function AdminContentReviewPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const getAuthHeaders = () => {
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('talent5_token') || localStorage.getItem('token')) : null;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
+
   const fetchContent = async () => {
     setLoading(true);
     try {
@@ -66,7 +74,7 @@ export default function AdminContentReviewPage() {
       if (statusFilter !== 'ALL') url.searchParams.set('status', statusFilter);
       if (search.trim()) url.searchParams.set('search', search.trim());
 
-      const res = await fetch(url.toString());
+      const res = await fetch(url.toString(), { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) {
         setItems(json.data);
@@ -107,7 +115,7 @@ export default function AdminContentReviewPage() {
     try {
       const res = await fetch(`/api/v1/admin/content-review/${selectedItem.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ action, notes: reviewNotes }),
       });
       const json = await res.json();

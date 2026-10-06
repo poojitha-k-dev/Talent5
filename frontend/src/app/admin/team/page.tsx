@@ -33,8 +33,8 @@ interface RoleDefinition {
 }
 
 export default function AdminTeamPage() {
-  const { user } = useAuth();
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const { user, token: authToken, isLoading: authLoading } = useAuth();
+  const token = authToken || (typeof window !== 'undefined' ? (localStorage.getItem('talent5_token') || localStorage.getItem('token')) : null);
 
   const [staff, setStaff] = useState<StaffUser[]>([]);
   const [availableRoles, setAvailableRoles] = useState<RoleDefinition[]>([]);
@@ -49,10 +49,15 @@ export default function AdminTeamPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchTeam = async () => {
+    const t = token;
+    if (!t) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch('/api/v1/admin/team', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${t}` },
       });
       const data = await res.json();
       if (data.success) {
@@ -67,8 +72,12 @@ export default function AdminTeamPage() {
   };
 
   useEffect(() => {
-    if (token) fetchTeam();
-  }, [token]);
+    if (token) {
+      fetchTeam();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [token, authLoading]);
 
   const handleAssignRole = async (e: React.FormEvent) => {
     e.preventDefault();

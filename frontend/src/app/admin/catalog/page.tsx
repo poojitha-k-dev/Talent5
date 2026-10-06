@@ -98,13 +98,16 @@ export default function AdminCatalogPage() {
     status: 'PUBLISHED',
   });
 
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const { token: authToken, isLoading: authLoading } = useAuth();
+  const token = authToken || (typeof window !== 'undefined' ? (localStorage.getItem('talent5_token') || localStorage.getItem('token')) : null);
 
   // Load Metadata (languages, genres, artists)
   const fetchMetadata = async () => {
+    const t = token;
+    if (!t) return;
     try {
       const res = await fetch('/api/v1/admin/catalog/metadata', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${t}` },
       });
       const data = await res.json();
       if (data.success) {
@@ -127,6 +130,11 @@ export default function AdminCatalogPage() {
 
   // Load Songs
   const fetchSongs = async () => {
+    const t = token;
+    if (!t) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -138,7 +146,7 @@ export default function AdminCatalogPage() {
       params.append('limit', '100');
 
       const res = await fetch(`/api/v1/admin/catalog/songs?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${t}` },
       });
       const data = await res.json();
       if (data.success) {
@@ -158,8 +166,10 @@ export default function AdminCatalogPage() {
     if (token) {
       fetchMetadata();
       fetchSongs();
+    } else if (!authLoading) {
+      setLoading(false);
     }
-  }, [token]);
+  }, [token, authLoading]);
 
   // Audio preview handler
   const handleTogglePlay = (song: SongItem) => {

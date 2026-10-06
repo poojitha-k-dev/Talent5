@@ -54,8 +54,8 @@ interface CompetitionEntry {
 }
 
 export default function AdminCompetitionsPage() {
-  const { user } = useAuth();
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const { user, token: authToken, isLoading: authLoading } = useAuth();
+  const token = authToken || (typeof window !== 'undefined' ? (localStorage.getItem('talent5_token') || localStorage.getItem('token')) : null);
 
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [selectedComp, setSelectedComp] = useState<Competition | null>(null);
@@ -80,10 +80,15 @@ export default function AdminCompetitionsPage() {
   });
 
   const fetchCompetitions = async () => {
+    const t = token;
+    if (!t) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch('/api/v1/admin/competitions', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${t}` },
       });
       const data = await res.json();
       if (data.success) {
@@ -100,11 +105,12 @@ export default function AdminCompetitionsPage() {
   };
 
   const selectCompetition = async (comp: Competition) => {
+    const t = token;
     setSelectedComp(comp);
     setEntriesLoading(true);
     try {
       const res = await fetch(`/api/v1/admin/competitions/${comp.id}/entries`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${t}` },
       });
       const data = await res.json();
       if (data.success) {
@@ -118,8 +124,12 @@ export default function AdminCompetitionsPage() {
   };
 
   useEffect(() => {
-    if (token) fetchCompetitions();
-  }, [token]);
+    if (token) {
+      fetchCompetitions();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [token, authLoading]);
 
   // Create Competition Submit
   const handleCreateCompetition = async (e: React.FormEvent) => {

@@ -44,13 +44,21 @@ export default function AdminPayoutsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const getAuthHeaders = () => {
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('talent5_token') || localStorage.getItem('token')) : null;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
+
   const fetchPayouts = async () => {
     setLoading(true);
     try {
       const url = new URL('/api/v1/admin/payouts', window.location.origin);
       if (statusFilter !== 'ALL') url.searchParams.set('status', statusFilter);
 
-      const res = await fetch(url.toString());
+      const res = await fetch(url.toString(), { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) {
         setPayouts(json.data);
@@ -84,7 +92,7 @@ export default function AdminPayoutsPage() {
     try {
       const res = await fetch(`/api/v1/admin/payouts/${selectedPayout.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           action,
           transactionRef: transactionRef.trim(),

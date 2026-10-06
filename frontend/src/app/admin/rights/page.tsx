@@ -50,6 +50,14 @@ export default function AdminRightsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  const getAuthHeaders = () => {
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('talent5_token') || localStorage.getItem('token')) : null;
+    return {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
+
   const fetchRights = async () => {
     setLoading(true);
     try {
@@ -58,7 +66,7 @@ export default function AdminRightsPage() {
       if (ownershipFilter !== 'ALL') url.searchParams.set('ownershipType', ownershipFilter);
       if (search.trim()) url.searchParams.set('search', search.trim());
 
-      const res = await fetch(url.toString());
+      const res = await fetch(url.toString(), { headers: getAuthHeaders() });
       const json = await res.json();
       if (json.success) {
         setRecords(json.data);
@@ -82,7 +90,7 @@ export default function AdminRightsPage() {
     try {
       const res = await fetch(`/api/v1/admin/rights/${selectedRecord.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ action, notes: actionNotes, newEndDate: newEndDate || undefined }),
       });
       const json = await res.json();

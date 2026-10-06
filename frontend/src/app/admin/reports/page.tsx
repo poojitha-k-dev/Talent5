@@ -30,8 +30,8 @@ interface ReportItem {
 }
 
 export default function AdminReportsPage() {
-  const { user } = useAuth();
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const { user, token: authToken, isLoading: authLoading } = useAuth();
+  const token = authToken || (typeof window !== 'undefined' ? (localStorage.getItem('talent5_token') || localStorage.getItem('token')) : null);
 
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [stats, setStats] = useState<any>(null);
@@ -40,6 +40,11 @@ export default function AdminReportsPage() {
   const [statusFilter, setStatusFilter] = useState('');
 
   const fetchReports = async () => {
+    const t = token;
+    if (!t) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -47,7 +52,7 @@ export default function AdminReportsPage() {
       if (statusFilter) params.append('status', statusFilter);
 
       const res = await fetch(`/api/v1/admin/reports?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${t}` },
       });
       const data = await res.json();
       if (data.success) {
@@ -62,8 +67,12 @@ export default function AdminReportsPage() {
   };
 
   useEffect(() => {
-    if (token) fetchReports();
-  }, [token]);
+    if (token) {
+      fetchReports();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [token, authLoading]);
 
   const handleResolve = async (id: string, status: string, action: 'NONE' | 'TAKEDOWN_SONG' | 'SUSPEND_USER' = 'NONE') => {
     try {

@@ -24,8 +24,8 @@ interface BroadcastRecord {
 }
 
 export default function AdminBroadcastsPage() {
-  const { user } = useAuth();
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const { user, token: authToken, isLoading: authLoading } = useAuth();
+  const token = authToken || (typeof window !== 'undefined' ? (localStorage.getItem('talent5_token') || localStorage.getItem('token')) : null);
 
   const [broadcasts, setBroadcasts] = useState<BroadcastRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,10 +41,15 @@ export default function AdminBroadcastsPage() {
   });
 
   const fetchBroadcasts = async () => {
+    const t = token;
+    if (!t) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch('/api/v1/admin/broadcasts', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${t}` },
       });
       const data = await res.json();
       if (data.success) {
@@ -58,8 +63,12 @@ export default function AdminBroadcastsPage() {
   };
 
   useEffect(() => {
-    if (token) fetchBroadcasts();
-  }, [token]);
+    if (token) {
+      fetchBroadcasts();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [token, authLoading]);
 
   const handleSendBroadcast = async (e: React.FormEvent) => {
     e.preventDefault();
