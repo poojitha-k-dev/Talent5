@@ -25,6 +25,7 @@ import {
   Shield,
   AlertCircle,
   LogIn,
+  Fingerprint,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/Button';
@@ -65,6 +66,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       title: 'Governance & Economics',
       items: [
         { name: 'Rights & Licensing', href: '/admin/rights', icon: Scale },
+        { name: 'Plagiarism & Audio Sentinel', href: '/admin/plagiarism', icon: Fingerprint },
         { name: 'Anti-Fraud Cockpit', href: '/admin/fraud', icon: ShieldAlert },
         { name: 'Creator Wallets & Ledger', href: '/admin/wallets', icon: Wallet },
         { name: 'Payout Settlements', href: '/admin/payouts', icon: Coins },

@@ -1192,8 +1192,19 @@ export default function AdminApplicationsPage() {
                   <ShieldCheck className="w-4 h-4 text-amber-400" />
                   <span>AI Plagiarism Checker & Released Song Analysis</span>
                 </div>
-                <span
-                  className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                <div className="flex items-center gap-2">
+                  <a
+                    href="/admin/plagiarism"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 font-mono underline"
+                    title="Launch full Plagiarism Sentinel Cockpit"
+                  >
+                    <span>Cross-Scan Registry</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                  <span
+                    className={`px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
                     selectedApp.plagiarismRiskLevel === 'HIGH_PLAGIARISM_ALERT'
                       ? 'bg-rose-500/20 text-rose-300 border-rose-500/30'
                       : selectedApp.creationIntent === 'VOCAL_SHOWCASE'
@@ -1208,6 +1219,7 @@ export default function AdminApplicationsPage() {
                     : '✨ 100% ORIGINAL COMPOSITION'}
                 </span>
               </div>
+            </div>
 
               {/* Plagiarism Metrics Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
