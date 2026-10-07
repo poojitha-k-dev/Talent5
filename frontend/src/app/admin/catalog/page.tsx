@@ -24,8 +24,10 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Activity,
 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { AudioWaveformInspector } from '@/components/audio/AudioWaveformInspector';
 
 interface SongItem {
   id: string;
@@ -85,6 +87,9 @@ export default function AdminCatalogPage() {
 
   // Modal states
   const [editingSong, setEditingSong] = useState<SongItem | null>(null);
+  const [inspectingSong, setInspectingSong] = useState<SongItem | null>(null);
+  const [selectedSongIds, setSelectedSongIds] = useState<string[]>([]);
+  const [isBulkProcessing, setIsBulkProcessing] = useState<boolean>(false);
   const [isNewSongModalOpen, setIsNewSongModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -242,6 +247,81 @@ export default function AdminCatalogPage() {
       }
     } catch (err) {
       console.error('Failed to update song status', err);
+    }
+  };
+
+  // Bulk Multi-Select Handlers
+  const handleToggleSelectSong = (id: string) => {
+    setSelectedSongIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedSongIds.length === songs.length) {
+      setSelectedSongIds([]);
+    } else {
+      setSelectedSongIds(songs.map((s) => s.id));
+    }
+  };
+
+  const handleBulkStatusChange = async (newStatus: 'PUBLISHED' | 'TAKEDOWN') => {
+    if (selectedSongIds.length === 0) return;
+    setIsBulkProcessing(true);
+    try {
+      const res = await fetch('/api/v1/admin/catalog/songs/bulk-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ songIds: selectedSongIds, status: newStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        setSelectedSongIds([]);
+        fetchSongs();
+      } else {
+        alert(data.message || 'Bulk status change failed');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error processing bulk status change');
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedSongIds.length === 0) return;
+    if (
+      !confirm(
+        `Are you sure you want to permanently delete ${selectedSongIds.length} tracks from the catalog?`
+      )
+    )
+      return;
+    setIsBulkProcessing(true);
+    try {
+      const res = await fetch('/api/v1/admin/catalog/songs/bulk-delete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ songIds: selectedSongIds }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message);
+        setSelectedSongIds([]);
+        fetchSongs();
+      } else {
+        alert(data.message || 'Bulk delete failed');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Error processing bulk delete');
+    } finally {
+      setIsBulkProcessing(false);
     }
   };
 
@@ -504,6 +584,15 @@ export default function AdminCatalogPage() {
               <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-white/5 text-[10px] font-mono uppercase tracking-wider text-gray-400 bg-midnight-950/50">
+                  <th className="py-3 px-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={songs.length > 0 && selectedSongIds.length === songs.length}
+                      onChange={handleToggleSelectAll}
+                      className="rounded border-white/20 bg-midnight-950 text-rose-500 focus:ring-0 cursor-pointer"
+                      title="Select all tracks"
+                    />
+                  </th>
                   <th className="py-3 px-4">Track</th>
                   <th className="py-3 px-4">Artist</th>
                   <th className="py-3 px-4">Language / Genre</th>
@@ -516,8 +605,22 @@ export default function AdminCatalogPage() {
               <tbody className="divide-y divide-white/5 text-xs text-gray-300">
                 {songs.map((song) => {
                   const isPlaying = playingAudioId === song.id;
+                  const isSelected = selectedSongIds.includes(song.id);
                   return (
-                    <tr key={song.id} className="hover:bg-white/[0.02] transition-colors group">
+                    <tr
+                      key={song.id}
+                      className={`hover:bg-white/[0.02] transition-colors group ${
+                        isSelected ? 'bg-rose-500/5' : ''
+                      }`}
+                    >
+                      <td className="py-3.5 px-3 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleToggleSelectSong(song.id)}
+                          className="rounded border-white/20 bg-midnight-950 text-rose-500 focus:ring-0 cursor-pointer"
+                        />
+                      </td>
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
                           <button
@@ -614,6 +717,14 @@ export default function AdminCatalogPage() {
                             {song.status === 'PUBLISHED' ? 'Takedown' : 'Publish'}
                           </button>
                           <button
+                            onClick={() => setInspectingSong(song)}
+                            className="p-1.5 rounded-lg text-amber-400 hover:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-all flex items-center gap-1"
+                            title="Inspect Audio Waveform & Acoustic Quality"
+                          >
+                            <Activity className="w-3.5 h-3.5" />
+                            <span className="hidden xl:inline text-[10px] font-mono">Waveform</span>
+                          </button>
+                          <button
                             onClick={() => setEditingSong(song)}
                             className="p-1.5 rounded-lg text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 border border-white/5 transition-all"
                             title="Edit metadata"
@@ -635,6 +746,51 @@ export default function AdminCatalogPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Multi-Select Bulk Actions Bar */}
+          {selectedSongIds.length > 0 && (
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-midnight-950 via-midnight-900 to-midnight-950 border border-amber-500/40 flex flex-wrap items-center justify-between gap-3 shadow-2xl animate-fadeIn">
+              <div className="flex items-center gap-3">
+                <span className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-amber-300 font-mono text-xs font-bold">
+                  {selectedSongIds.length} tracks selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSongIds([])}
+                  className="text-xs text-gray-400 hover:text-white underline font-mono"
+                >
+                  Clear Selection
+                </button>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => handleBulkStatusChange('PUBLISHED')}
+                  disabled={isBulkProcessing}
+                  className="px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl text-xs font-mono transition-all shadow-md shadow-emerald-500/20 disabled:opacity-50"
+                >
+                  Bulk Publish ({selectedSongIds.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBulkStatusChange('TAKEDOWN')}
+                  disabled={isBulkProcessing}
+                  className="px-3.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-mono transition-all disabled:opacity-50"
+                >
+                  Bulk Takedown ({selectedSongIds.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkDelete}
+                  disabled={isBulkProcessing}
+                  className="px-3.5 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 rounded-xl text-xs font-mono transition-all disabled:opacity-50"
+                >
+                  Bulk Delete ({selectedSongIds.length})
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Pagination Toolbar */}
           <div className="p-4 sm:p-5 rounded-2xl bg-midnight-950/80 border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 shadow-xl backdrop-blur-sm text-xs">
@@ -1061,6 +1217,55 @@ export default function AdminCatalogPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Waveform & Acoustic Quality Inspector Modal */}
+      {inspectingSong && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-midnight-900 border border-white/10 rounded-3xl max-w-4xl w-full p-6 space-y-4 shadow-2xl animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+                  <Activity className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white tracking-tight">
+                    Acoustic & Waveform Quality Inspector
+                  </h3>
+                  <p className="text-xs text-gray-400 font-mono">
+                    SoundCloud-style peak extraction, silence detection, clipping indicators & broadcast normalization
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectingSong(null)}
+                className="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <AudioWaveformInspector
+              audioUrl={inspectingSong.audioUrl}
+              title={inspectingSong.title}
+              artistOrCreator={`${inspectingSong.artistName} • ${inspectingSong.languageName} • ${inspectingSong.genreName}`}
+              durationSeconds={inspectingSong.durationSeconds}
+              accentColor="amber"
+            />
+
+            <div className="flex items-center justify-between text-xs text-gray-400 pt-2 font-mono">
+              <span>Track Slug: {inspectingSong.slug}</span>
+              <button
+                type="button"
+                onClick={() => setInspectingSong(null)}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-colors"
+              >
+                Close Inspector
+              </button>
+            </div>
           </div>
         </div>
       )}

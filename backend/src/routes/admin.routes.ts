@@ -1362,6 +1362,51 @@ router.delete('/catalog/songs/:id', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/catalog/songs/bulk-status', async (req: Request, res: Response) => {
+  const actor = (req as any).user;
+  try {
+    const { songIds, status } = req.body;
+    if (!Array.isArray(songIds) || songIds.length === 0 || !status) {
+      return res.status(400).json({ success: false, message: 'Invalid songIds array or status' });
+    }
+    await query(
+      `UPDATE songs SET status = $1, updated_at = NOW() WHERE id = ANY($2::text[])`,
+      [status, songIds]
+    );
+    await recordAuditLog({
+      actorId: actor.id,
+      action: 'ADMIN_BULK_UPDATE_SONG_STATUS',
+      entityName: 'SONG',
+      entityId: `BULK_${songIds.length}`,
+      newState: { songIds, status },
+    });
+    return res.status(200).json({ success: true, message: `Successfully updated ${songIds.length} tracks to ${status}` });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
+router.post('/catalog/songs/bulk-delete', async (req: Request, res: Response) => {
+  const actor = (req as any).user;
+  try {
+    const { songIds } = req.body;
+    if (!Array.isArray(songIds) || songIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'Invalid songIds array' });
+    }
+    await query(`DELETE FROM songs WHERE id = ANY($1::text[])`, [songIds]);
+    await recordAuditLog({
+      actorId: actor.id,
+      action: 'ADMIN_BULK_DELETE_SONGS',
+      entityName: 'SONG',
+      entityId: `BULK_${songIds.length}`,
+      newState: { songIds },
+    });
+    return res.status(200).json({ success: true, message: `Successfully removed ${songIds.length} tracks from catalog` });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+  }
+});
+
 // ==========================================
 // 11. SYNCHRONIZED LYRICS & KARAOKE STUDIO
 // ==========================================

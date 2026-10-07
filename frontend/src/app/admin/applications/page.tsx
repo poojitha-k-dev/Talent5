@@ -42,6 +42,7 @@ import {
   ChevronsRight,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { AudioWaveformInspector } from '@/components/audio/AudioWaveformInspector';
 
 interface ThreatAssessment {
   hateSpeechRisk: number;
@@ -1503,54 +1504,13 @@ export default function AdminApplicationsPage() {
                   </video>
                 </div>
               ) : (
-                <div className="p-4 rounded-2xl bg-black/40 border border-white/10 space-y-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <button
-                      type="button"
-                      onClick={() => handlePlayAudio(selectedApp)}
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center text-midnight-950 transition-all ${
-                        playingAudioId === selectedApp.id ? 'bg-amber-400 scale-105' : 'bg-teal-400 hover:bg-teal-300'
-                      }`}
-                    >
-                      {playingAudioId === selectedApp.id ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 ml-0.5" />}
-                    </button>
-
-                    <div className="flex-1 space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="font-bold text-white tracking-wide">
-                          {selectedApp.stageName} — Sample Audition Master
-                        </span>
-                        <span className="text-gray-400 font-mono">
-                          {formatTime(audioCurrentTime)} / {formatTime(audioDuration || 180)}
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        step="0.1"
-                        value={audioProgress}
-                        onChange={handleSeek}
-                        className="w-full accent-teal-400 cursor-pointer h-1.5 bg-white/10 rounded-lg"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2 pl-2 border-l border-white/10">
-                      <button onClick={toggleMute} className="text-gray-400 hover:text-white">
-                        {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-                      </button>
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.05"
-                        value={isMuted ? 0 : audioVolume}
-                        onChange={handleVolumeChange}
-                        className="w-16 accent-teal-400 cursor-pointer h-1 bg-white/10 rounded"
-                      />
-                    </div>
-                  </div>
-                </div>
+                <AudioWaveformInspector
+                  audioUrl={selectedApp.samplePerformanceUrl}
+                  title={`${selectedApp.stageName} — Sample Audition`}
+                  artistOrCreator={`${selectedApp.fullName} • ${selectedApp.category} • ${selectedApp.city || 'India'}`}
+                  durationSeconds={180}
+                  accentColor="teal"
+                />
               )}
 
               {/* Sample URL Display */}
