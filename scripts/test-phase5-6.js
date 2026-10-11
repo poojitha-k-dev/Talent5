@@ -1,7 +1,11 @@
 const jwt = require('jsonwebtoken');
 
 const BASE_URL = 'http://localhost:3000/api/v1';
-const JWT_SECRET = process.env.JWT_SECRET || 'talent5_super_secure_jwt_secret_key_2026_desi_music_platform_ultra';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('JWT_SECRET is not set. Export it before running this script.');
+  process.exit(1);
+}
 
 function generateToken(user) {
   return jwt.sign(

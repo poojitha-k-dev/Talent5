@@ -115,26 +115,33 @@ export class StorageService {
   }
 
   public getLocalFilePath(key: string): string {
-    const safeKey = key.replace(/\.\./g, '');
-    const candidatePaths = [
-      path.resolve(process.cwd(), 'frontend/public/media', safeKey),
-      path.resolve(process.cwd(), '../frontend/public/media', safeKey),
-      path.resolve(__dirname, '../../frontend/public/media', safeKey),
-      path.resolve(__dirname, '../../../frontend/public/media', safeKey),
-      path.resolve(process.cwd(), 'public/media', safeKey),
-      path.resolve(process.cwd(), '../public/media', safeKey),
-      path.resolve(process.cwd(), 'frontend/public/uploads', safeKey),
-      path.resolve(process.cwd(), '../frontend/public/uploads', safeKey),
+    // Reduce to a bare filename and strip any path separators / traversal.
+    // Relying on string replacement alone (e.g. removing "..") is unsafe, so we
+    // normalize and then enforce that the resolved path stays within an allowed
+    // base directory.
+    const safeKey = path.basename(path.normalize(key).replace(/^(\.\.(\/|\\|$))+/, ''));
+
+    const baseDirs = [
+      path.resolve(process.cwd(), 'frontend/public/media'),
+      path.resolve(process.cwd(), '../frontend/public/media'),
+      path.resolve(__dirname, '../../frontend/public/media'),
+      path.resolve(__dirname, '../../../frontend/public/media'),
+      path.resolve(process.cwd(), 'public/media'),
+      path.resolve(process.cwd(), '../public/media'),
+      path.resolve(process.cwd(), 'frontend/public/uploads'),
+      path.resolve(process.cwd(), '../frontend/public/uploads'),
     ];
 
-    for (const candidate of candidatePaths) {
-      if (fs.existsSync(candidate)) {
+    for (const baseDir of baseDirs) {
+      const candidate = path.resolve(baseDir, safeKey);
+      // Containment check: candidate must live directly under baseDir.
+      if (candidate !== baseDir && candidate.startsWith(baseDir + path.sep) && fs.existsSync(candidate)) {
         return candidate;
       }
     }
 
-    // Default fallback
-    return path.resolve(process.cwd(), 'frontend/public/media', safeKey);
+    // Default fallback (also contained within the primary media directory).
+    return path.resolve(baseDirs[0], safeKey);
   }
 }
 

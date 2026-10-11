@@ -20,20 +20,32 @@ export interface PayoutWebhookPayload {
   };
 }
 
-const WEBHOOK_SECRET = process.env.PAYMENT_WEBHOOK_SECRET || 'talent5_live_webhook_secret_2026_instant_upi';
+// No hardcoded fallback: a known webhook secret lets attackers forge payout
+// events and manipulate wallet balances. Require it from the environment.
+function getWebhookSecret(): string {
+  const secret = process.env.PAYMENT_WEBHOOK_SECRET?.trim();
+  if (!secret) {
+    throw new Error('PAYMENT_WEBHOOK_SECRET is not configured. Set it in the environment to verify payout webhooks.');
+  }
+  return secret;
+}
 
 export function verifyWebhookSignature(rawBody: string, signature: string): boolean {
   if (!signature) return false;
   try {
     const expectedSignature = crypto
-      .createHmac('sha256', WEBHOOK_SECRET)
+      .createHmac('sha256', getWebhookSecret())
       .update(rawBody)
       .digest('hex');
 
-    return crypto.timingSafeEqual(
-      Buffer.from(signature, 'utf8'),
-      Buffer.from(expectedSignature, 'utf8')
-    );
+    const provided = Buffer.from(signature, 'utf8');
+    const expected = Buffer.from(expectedSignature, 'utf8');
+
+    // timingSafeEqual throws on length mismatch; guard first to keep the
+    // comparison constant-time for equal-length inputs.
+    if (provided.length !== expected.length) return false;
+
+    return crypto.timingSafeEqual(provided, expected);
   } catch {
     return false;
   }
@@ -41,7 +53,7 @@ export function verifyWebhookSignature(rawBody: string, signature: string): bool
 
 export function generateWebhookSignature(payloadString: string): string {
   return crypto
-    .createHmac('sha256', WEBHOOK_SECRET)
+    .createHmac('sha256', getWebhookSecret())
     .update(payloadString)
     .digest('hex');
 }

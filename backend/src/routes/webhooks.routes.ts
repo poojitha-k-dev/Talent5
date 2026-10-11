@@ -11,17 +11,20 @@ router.post('/payments', async (req: Request, res: Response) => {
       (req.headers['x-razorpay-signature'] as string) ||
       (req.headers['x-cashfree-signature'] as string);
 
-    // In Express with json body parser, we can serialize body or check req.body
-    const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    // Verify the HMAC over the EXACT raw bytes received (captured by the
+    // express.json verify hook in server.ts). Re-serializing the parsed body
+    // would change ordering/whitespace and break signature verification.
+    const rawBuffer: Buffer | undefined = (req as any).rawBody;
+    const rawBody = rawBuffer ? rawBuffer.toString('utf8') : '';
 
-    if (!signature || !verifyWebhookSignature(rawBody, signature)) {
+    if (!signature || !rawBody || !verifyWebhookSignature(rawBody, signature)) {
       return res.status(401).json({
         success: false,
         error: { code: 'INVALID_SIGNATURE', message: 'Webhook signature verification failed.' },
       });
     }
 
-    const payload = typeof req.body === 'object' ? req.body : JSON.parse(rawBody) as PayoutWebhookPayload;
+    const payload = (req.body ?? JSON.parse(rawBody)) as PayoutWebhookPayload;
 
     const result = await processPayoutWebhook(payload);
 
@@ -33,7 +36,7 @@ router.post('/payments', async (req: Request, res: Response) => {
     console.error('Error processing payment webhook:', err);
     return res.status(500).json({
       success: false,
-      error: { code: 'WEBHOOK_ERROR', message: err.message },
+      error: { code: 'WEBHOOK_ERROR', message: 'Failed to process webhook.' },
     });
   }
 });

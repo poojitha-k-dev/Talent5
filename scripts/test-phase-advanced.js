@@ -4,8 +4,12 @@ const fs = require('fs');
 const path = require('path');
 
 const BASE_URL = 'http://localhost:3000';
-const JWT_SECRET = process.env.JWT_SECRET || 'talent5_super_secure_jwt_secret_key_2026_desi_music_platform_ultra';
-const WEBHOOK_SECRET = process.env.PAYMENT_WEBHOOK_SECRET || 'talent5_live_webhook_secret_2026_instant_upi';
+const JWT_SECRET = process.env.JWT_SECRET;
+const WEBHOOK_SECRET = process.env.PAYMENT_WEBHOOK_SECRET;
+if (!JWT_SECRET || !WEBHOOK_SECRET) {
+  console.error('JWT_SECRET and PAYMENT_WEBHOOK_SECRET must be set. Export them before running this script.');
+  process.exit(1);
+}
 
 function generateToken(user) {
   return jwt.sign(

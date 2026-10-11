@@ -6,13 +6,18 @@ import { fileURLToPath } from 'url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-const connectionString =
-  process.env.DATABASE_URL ||
-  'postgresql://postgres.psudcpqfsfhqkjnvuwxv:PoojithsaK@123@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true';
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error('DATABASE_URL is not set. Export it before running this script.');
+  process.exit(1);
+}
 
 const pool = new pg.Pool({
   connectionString,
-  ssl: { rejectUnauthorized: false },
+  ssl:
+    connectionString.includes('localhost') || connectionString.includes('127.0.0.1')
+      ? false
+      : { rejectUnauthorized: true, ...(process.env.DATABASE_CA_CERT ? { ca: process.env.DATABASE_CA_CERT } : {}) },
 });
 
 const INDEX_QUERIES = [

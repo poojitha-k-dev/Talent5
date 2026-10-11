@@ -1,13 +1,27 @@
 import pg from 'pg';
 const { Pool } = pg;
 
+// Source (local) database. Loopback default is safe for local dev.
+const sourceConnectionString =
+  process.env.SOURCE_DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/talent5_v1';
+
+// Target (Supabase) database. Must be provided via the environment.
+const targetConnectionString = process.env.DATABASE_URL;
+if (!targetConnectionString) {
+  console.error('DATABASE_URL (Supabase target) is not set. Export it before running this script.');
+  process.exit(1);
+}
+
 const localPool = new Pool({
-  connectionString: 'postgresql://postgres:postgres@localhost:5432/talent5_v1',
+  connectionString: sourceConnectionString,
 });
 
 const supabasePool = new Pool({
-  connectionString: 'postgresql://postgres.psudcpqfsfhqkjnvuwxv:PoojithsaK@123@aws-0-ap-southeast-2.pooler.supabase.com:5432/postgres',
-  ssl: { rejectUnauthorized: false },
+  connectionString: targetConnectionString,
+  ssl:
+    targetConnectionString.includes('localhost') || targetConnectionString.includes('127.0.0.1')
+      ? false
+      : { rejectUnauthorized: true, ...(process.env.DATABASE_CA_CERT ? { ca: process.env.DATABASE_CA_CERT } : {}) },
 });
 
 // Helper to chunk arrays

@@ -6,7 +6,11 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL || 'postgresql://postgres:postgres@localhost:5432/talent5_v1',
 });
 
-const JWT_SECRET = process.env.JWT_SECRET || 'talent5_super_secure_jwt_secret_key_2026_desi_music_platform_ultra';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('JWT_SECRET is not set. Export it before running this script.');
+  process.exit(1);
+}
 
 async function runPhase1Tests() {
   console.log('====================================================');

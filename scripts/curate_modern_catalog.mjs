@@ -5,10 +5,17 @@ import path from 'path';
 dotenv.config({ path: path.resolve('backend/.env') });
 
 const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  console.error('DATABASE_URL is not set. Export it before running this script.');
+  process.exit(1);
+}
 
 const pool = new pg.Pool({
   connectionString,
-  ssl: { rejectUnauthorized: false }
+  ssl:
+    connectionString.includes('localhost') || connectionString.includes('127.0.0.1')
+      ? false
+      : { rejectUnauthorized: true, ...(process.env.DATABASE_CA_CERT ? { ca: process.env.DATABASE_CA_CERT } : {}) }
 });
 
 async function main() {

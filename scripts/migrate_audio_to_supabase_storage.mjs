@@ -8,16 +8,21 @@ dotenv.config({ path: path.resolve(process.cwd(), 'backend/.env') });
 dotenv.config();
 
 const { Pool } = pg;
-const PROJECT_REF = 'psudcpqfsfhqkjnvuwxv';
-const SUPABASE_URL = process.env.SUPABASE_URL || `https://${PROJECT_REF}.supabase.co`;
+const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY =
   process.argv[2] ||
   process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.SUPABASE_KEY;
 
-const DATABASE_URL =
-  process.env.DATABASE_URL ||
-  'postgresql://postgres.psudcpqfsfhqkjnvuwxv:PoojithsaK@123@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres?pgbouncer=true';
+const DATABASE_URL = process.env.DATABASE_URL;
+if (!DATABASE_URL) {
+  console.error('DATABASE_URL is not set. Export it before running this script.');
+  process.exit(1);
+}
+if (!SUPABASE_URL) {
+  console.error('SUPABASE_URL is not set. Export it before running this script.');
+  process.exit(1);
+}
 
 const BUCKET_NAME = 'songs';
 const MEDIA_DIR = path.resolve(process.cwd(), 'frontend/public/media');
@@ -25,7 +30,10 @@ const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB Supabase Free Tier file li
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl:
+    DATABASE_URL.includes('localhost') || DATABASE_URL.includes('127.0.0.1')
+      ? false
+      : { rejectUnauthorized: true, ...(process.env.DATABASE_CA_CERT ? { ca: process.env.DATABASE_CA_CERT } : {}) },
 });
 
 async function ensureBucketExists() {

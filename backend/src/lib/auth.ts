@@ -3,8 +3,19 @@ import jwt from 'jsonwebtoken';
 import { User, UserRole, JWTPayload } from '@talent5/types';
 import { query } from './db';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'talent5_super_secure_jwt_secret_key_2026_desi_music_platform_ultra';
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRATION = process.env.JWT_EXPIRATION || '7d';
+
+if (!JWT_SECRET || JWT_SECRET.trim().length < 32) {
+  // Fail fast: never fall back to a hardcoded signing key. A weak or missing
+  // secret allows attackers to forge authentication tokens for any user/role.
+  throw new Error(
+    'JWT_SECRET is not configured or is too weak. Set a strong (>=32 char) JWT_SECRET environment variable.'
+  );
+}
+
+// Narrowed, non-undefined signing key for use in jwt.sign / jwt.verify.
+const JWT_SIGNING_KEY: string = JWT_SECRET;
 
 export function signToken(payload: { id: string; email: string; roles: UserRole[]; username: string }): string {
   return jwt.sign(
@@ -14,14 +25,14 @@ export function signToken(payload: { id: string; email: string; roles: UserRole[
       roles: payload.roles,
       username: payload.username,
     },
-    JWT_SECRET,
+    JWT_SIGNING_KEY,
     { expiresIn: (JWT_EXPIRATION as any) || '7d' }
   );
 }
 
 export function verifyToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as JWTPayload;
+    return jwt.verify(token, JWT_SIGNING_KEY) as JWTPayload;
   } catch {
     return null;
   }

@@ -8,6 +8,26 @@ import { sendPasswordResetEmail, isEmailServiceConfigured } from '../lib/email';
 
 const router = Router();
 
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+// Mock Google sign-in is a dangerous auth bypass (mints a session for an
+// arbitrary email). It is OFF unless explicitly enabled AND never in production.
+const MOCK_AUTH_ENABLED = process.env.ENABLE_MOCK_AUTH === 'true' && !IS_PRODUCTION;
+const OAUTH_STATE_COOKIE = 'talent5_oauth_state';
+
+/**
+ * Returns a safe, same-origin relative redirect path. Rejects absolute URLs
+ * and protocol-relative (`//host`) values to prevent open-redirect abuse.
+ */
+function sanitizeRedirectPath(input: unknown): string {
+  if (typeof input !== 'string' || input.length === 0) return '/';
+  // Must be a single-slash-prefixed relative path, not "//" (protocol-relative)
+  // and not containing a scheme or backslash tricks.
+  if (!input.startsWith('/') || input.startsWith('//') || input.includes('\\') || input.includes('://')) {
+    return '/';
+  }
+  return input;
+}
+
 // POST /api/v1/auth/login
 router.post('/login', async (req: Request, res: Response) => {
   try {
@@ -404,7 +424,9 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       success: true,
       message: 'Verification code generated.',
       email: cleanEmail,
-      devOtp: process.env.NODE_ENV !== 'production' ? otp : undefined,
+      // Only expose the OTP in responses when explicitly opted-in for local dev,
+      // and never in production. Prevents OTP disclosure via the API.
+      devOtp: process.env.EXPOSE_DEV_OTP === 'true' && !IS_PRODUCTION ? otp : undefined,
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, message: error.message });
@@ -461,12 +483,13 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 // GET /api/v1/auth/google
 router.get('/google', async (req: Request, res: Response) => {
   try {
-    const redirectPath = (req.query.redirect as string) || '/';
+    const redirectPath = sanitizeRedirectPath(req.query.redirect);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.FRONTEND_URL || 'http://localhost:3000';
 
-    // Support instant development mock sign-in for testing without Google Cloud setup
-    if (req.query.mock === 'true' && process.env.NODE_ENV !== 'production') {
+    // Instant mock sign-in for local testing. Explicitly opt-in via
+    // ENABLE_MOCK_AUTH and never available in production.
+    if (req.query.mock === 'true' && MOCK_AUTH_ENABLED) {
       const mockEmail = (req.query.email as string) || 'google.user@talent5.com';
       const mockName = (req.query.name as string) || 'Google User';
       const mockGoogleId = `mock_google_id_${mockEmail.replace(/[^a-z0-9]/gi, '_')}`;
@@ -530,12 +553,24 @@ router.get('/google', async (req: Request, res: Response) => {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
     const redirectUri = `${baseUrl}/api/v1/auth/google/callback`;
 
+    // CSRF protection: bind the OAuth flow to this browser. The csrf nonce is
+    // stored in an httpOnly cookie and must match the value echoed back in the
+    // state parameter on callback.
+    const csrf = crypto.randomBytes(16).toString('hex');
     const statePayload = {
-      csrf: crypto.randomBytes(16).toString('hex'),
+      csrf,
       redirect: redirectPath,
       timestamp: Date.now(),
     };
     const state = Buffer.from(JSON.stringify(statePayload)).toString('base64url');
+
+    res.cookie(OAUTH_STATE_COOKIE, csrf, {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: IS_PRODUCTION,
+      maxAge: 10 * 60 * 1000, // 10 minutes
+      path: '/',
+    });
 
     const googleAuthUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     googleAuthUrl.searchParams.set('client_id', clientId!);
@@ -550,7 +585,7 @@ router.get('/google', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Google OAuth init error:', error);
     const frontendUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(error.message || 'OAuth initialization failed')}`);
+    return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent('OAuth initialization failed. Please try again.')}`);
   }
 });
 
@@ -576,14 +611,31 @@ router.get('/google/callback', async (req: Request, res: Response) => {
       return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Missing authorization code from Google.')}`);
     }
 
+    // CSRF validation: the csrf nonce in `state` must match the httpOnly cookie
+    // set when the flow started. Reject mismatches to prevent login CSRF.
+    const stateCookieMatch = (req.headers['cookie'] || '').match(
+      new RegExp(`${OAUTH_STATE_COOKIE}=([^;]+)`)
+    );
+    const expectedCsrf = stateCookieMatch ? decodeURIComponent(stateCookieMatch[1]) : null;
+    // Clear the one-time state cookie regardless of outcome.
+    res.clearCookie(OAUTH_STATE_COOKIE, { path: '/' });
+
     let targetRedirect = '/';
+    let stateCsrf: string | null = null;
     if (state) {
       try {
         const decoded = JSON.parse(Buffer.from(state, 'base64url').toString('utf8'));
-        if (decoded.redirect) targetRedirect = decoded.redirect;
+        stateCsrf = typeof decoded.csrf === 'string' ? decoded.csrf : null;
+        targetRedirect = sanitizeRedirectPath(decoded.redirect);
       } catch (e) {
-        console.warn('[Talent5 OAuth] Failed to decode state payload:', e);
+        console.warn('[Talent5 OAuth] Failed to decode state payload.');
       }
+    }
+
+    if (!expectedCsrf || !stateCsrf || expectedCsrf !== stateCsrf) {
+      return res.redirect(
+        `${frontendUrl}/login?error=${encodeURIComponent('Invalid or expired sign-in session. Please try again.')}`
+      );
     }
 
     const clientId = process.env.GOOGLE_CLIENT_ID;
@@ -719,21 +771,25 @@ router.get('/google/callback', async (req: Request, res: Response) => {
 
     const redirectUrl = new URL('/login', frontendUrl);
     redirectUrl.searchParams.set('google_auth', 'success');
-    redirectUrl.searchParams.set('token', jwtToken);
     redirectUrl.searchParams.set('redirect', targetRedirect);
 
+    // Session is delivered via an httpOnly cookie only. The token is NOT placed
+    // in the redirect URL to avoid leaking it via browser history, proxy/access
+    // logs, and Referer headers. The frontend should call /auth/me after this
+    // redirect to load the session using the cookie.
     res.cookie('talent5_token', jwtToken, {
       path: '/',
+      httpOnly: true,
       maxAge: 7 * 24 * 60 * 60 * 1000,
       sameSite: 'lax',
-      secure: process.env.NODE_ENV === 'production',
+      secure: IS_PRODUCTION,
     });
 
-    console.log(`[Talent5 OAuth] Google authentication successful for: ${email} (google_id: ${googleId})`);
+    console.log('[Talent5 OAuth] Google authentication successful.');
     return res.redirect(redirectUrl.toString());
   } catch (error: any) {
     console.error('[Talent5 OAuth] Google callback error:', error);
-    return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent(error.message || 'Google authentication failed')}`);
+    return res.redirect(`${frontendUrl}/login?error=${encodeURIComponent('Google authentication failed. Please try again.')}`);
   }
 });
 

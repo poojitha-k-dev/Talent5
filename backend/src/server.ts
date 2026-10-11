@@ -33,19 +33,59 @@ import webhooksRouter from './routes/webhooks.routes';
 
 const app = express();
 const PORT = process.env.BACKEND_PORT || 5000;
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+
+// Build the CORS allowlist from configuration. CORS_ORIGINS is the primary
+// source (comma-separated); FRONTEND_URL and NEXT_PUBLIC_APP_URL are fallbacks.
+const allowedOrigins = new Set(
+  [
+    ...(process.env.CORS_ORIGINS || '').split(','),
+    process.env.FRONTEND_URL || '',
+    process.env.NEXT_PUBLIC_APP_URL || '',
+  ]
+    .map((o) => o.trim())
+    .filter((o) => o.length > 0)
+);
+
+// Minimal, dependency-free security headers suitable for a JSON API.
+app.use((_req: Request, res: Response, next: NextFunction) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-site');
+  // This service returns JSON/media, not HTML, so a restrictive CSP is safe.
+  res.setHeader('Content-Security-Policy', "default-src 'none'; frame-ancestors 'none'");
+  if (IS_PRODUCTION) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
 
 // Middleware
 app.use(
   cors({
-    origin: (origin: any, callback: any) => {
-      // Allow local development ports, null origin (Postman/Curl), or FRONTEND_URL
-      callback(null, true);
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      // Requests with no Origin header (same-origin, server-to-server, curl,
+      // health checks) are permitted — there is no browser origin to protect.
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.has(origin)) return callback(null, true);
+      // Reject disallowed browser origins. Never reflect arbitrary origins.
+      return callback(new Error('Not allowed by CORS'), false);
     },
     credentials: true,
   })
 );
 
-app.use(express.json({ limit: '50mb' }));
+// Capture the raw request body so webhook handlers can verify HMAC signatures
+// over the exact received bytes (re-serializing a parsed object breaks HMAC).
+app.use(
+  express.json({
+    limit: '50mb',
+    verify: (req: Request, _res: Response, buf: Buffer) => {
+      (req as any).rawBody = buf;
+    },
+  })
+);
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Simple logger
@@ -100,9 +140,17 @@ app.use((req: Request, res: Response) => {
 // Global Error Handler
 app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Unhandled server error:', err);
+
+  // Disallowed CORS origin -> 403 with a non-sensitive message.
+  if (err && err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ success: false, message: 'Origin not allowed.' });
+  }
+
+  // In production, do not leak internal error details to clients. The full
+  // error is logged above; clients receive a generic message.
   res.status(500).json({
     success: false,
-    message: err.message || 'Internal server error occurred.',
+    message: IS_PRODUCTION ? 'Internal server error occurred.' : err.message || 'Internal server error occurred.',
   });
 });
 
