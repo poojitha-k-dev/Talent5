@@ -54,6 +54,13 @@ function isAllowedMediaUrl(rawUrl: string): boolean {
 // GET /api/v1/media/stream/:key(*)
 router.get('/stream/:key(*)', async (req: Request, res: Response) => {
   try {
+    // Media bytes may be embedded cross-origin by browser <audio>/<img>/<video>
+    // elements. Override the API-wide strict headers for this route so playback
+    // is not blocked: allow cross-origin resource use and drop the JSON CSP
+    // (which is meant for HTML documents, not raw media responses).
+    res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+    res.removeHeader('Content-Security-Policy');
+
     const rawKey = req.params.key;
     const key = path.basename(decodeURIComponent(rawKey));
     const filePath = storage.getLocalFilePath(key);

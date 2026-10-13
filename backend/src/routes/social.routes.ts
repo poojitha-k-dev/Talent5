@@ -3,11 +3,12 @@ import { query, getClient } from '../lib/db';
 import { getUserFromRequest } from '../lib/auth';
 import { processAndValidateLike } from '../lib/fraud';
 import { creditCreatorForValidLike } from '../lib/rewards';
+import { writeActionLimiter } from '../lib/rate-limit';
 
 const router = Router();
 
 // POST /api/v1/social/like
-router.post('/like', async (req: Request, res: Response) => {
+router.post('/like', writeActionLimiter, async (req: Request, res: Response) => {
   try {
     const user = await getUserFromRequest(req);
     if (!user) {
@@ -125,7 +126,7 @@ router.get('/likes', async (req: Request, res: Response) => {
 });
 
 // POST /api/v1/social/follow
-router.post('/follow', async (req: Request, res: Response) => {
+router.post('/follow', writeActionLimiter, async (req: Request, res: Response) => {
   try {
     const user = await getUserFromRequest(req);
     if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
@@ -186,7 +187,7 @@ router.get('/comments', async (req: Request, res: Response) => {
 const MAX_COMMENT_LENGTH = 2000;
 
 // POST /api/v1/social/comments
-router.post('/comments', async (req: Request, res: Response) => {
+router.post('/comments', writeActionLimiter, async (req: Request, res: Response) => {
   try {
     const user = await getUserFromRequest(req);
     if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });

@@ -21,11 +21,13 @@
     "test": "node scripts/run-tests.js",
     "db:init": "node infrastructure/database/init-db.js",
     "db:seed": "node infrastructure/database/seed-db.js",
+    "audit": "npm audit --omit=dev && npm audit --workspaces --omit=dev",
+    "audit:all": "npm audit --workspaces --include-workspace-root",
     "postinstall": "prisma skills sync || exit 0"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "prisma": "^8.0.0-rc.17",
+    "prisma": "^8.0.0",
     "typescript": "^5.6.3"
   }
 }

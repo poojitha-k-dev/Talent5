@@ -5,6 +5,7 @@ import { signToken, getUserFromRequest, authenticate } from '../lib/auth';
 import { hashPassword, verifyPassword, slugify } from '@talent5/utils';
 import { UserRole } from '@talent5/types';
 import { sendPasswordResetEmail, isEmailServiceConfigured } from '../lib/email';
+import { authLimiter, passwordResetLimiter } from '../lib/rate-limit';
 
 const router = Router();
 
@@ -30,7 +31,7 @@ function sanitizeRedirectPath(input: unknown): string {
 }
 
 // POST /api/v1/auth/login
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', authLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
@@ -105,7 +106,7 @@ router.post('/login', async (req: Request, res: Response) => {
 });
 
 // POST /api/v1/auth/register
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', authLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password, fullName, username } = req.body;
 
@@ -341,7 +342,7 @@ router.put('/me', async (req: Request, res: Response) => {
 });
 
 // POST /api/v1/auth/change-password
-router.post('/change-password', async (req: Request, res: Response) => {
+router.post('/change-password', authLimiter, async (req: Request, res: Response) => {
   try {
     const user = await getUserFromRequest(req);
     if (!user) {
@@ -378,7 +379,7 @@ router.post('/change-password', async (req: Request, res: Response) => {
 
 
 // POST /api/v1/auth/forgot-password
-router.post('/forgot-password', async (req: Request, res: Response) => {
+router.post('/forgot-password', passwordResetLimiter, async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
     if (!email || typeof email !== 'string') {
@@ -438,7 +439,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 });
 
 // POST /api/v1/auth/reset-password
-router.post('/reset-password', async (req: Request, res: Response) => {
+router.post('/reset-password', passwordResetLimiter, async (req: Request, res: Response) => {
   try {
     const { email, code, newPassword } = req.body;
     if (!email || !code || !newPassword) {

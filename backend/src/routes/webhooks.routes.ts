@@ -1,10 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { verifyWebhookSignature, processPayoutWebhook, PayoutWebhookPayload } from '../lib/payout-gateway';
+import { webhookLimiter } from '../lib/rate-limit';
 
 const router = Router();
 
 // POST /api/v1/webhooks/payments
-router.post('/payments', async (req: Request, res: Response) => {
+router.post('/payments', webhookLimiter, async (req: Request, res: Response) => {
   try {
     const signature =
       (req.headers['x-webhook-signature'] as string) ||

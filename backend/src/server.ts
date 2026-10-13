@@ -35,6 +35,10 @@ const app = express();
 const PORT = process.env.BACKEND_PORT || 5000;
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
+// Behind the nginx reverse proxy, trust the first proxy hop so client IPs
+// (used by rate limiting) are read from X-Forwarded-For correctly.
+app.set('trust proxy', 1);
+
 // Build the CORS allowlist from configuration. CORS_ORIGINS is the primary
 // source (comma-separated); FRONTEND_URL and NEXT_PUBLIC_APP_URL are fallbacks.
 const allowedOrigins = new Set(
