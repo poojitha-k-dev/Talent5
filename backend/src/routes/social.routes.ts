@@ -60,10 +60,12 @@ router.post('/like', async (req: Request, res: Response) => {
         deviceFingerprint,
       });
 
+      // Column names must match the schema: target_id, ip_hash,
+      // device_fingerprint, status, risk_score (there is no is_valid column).
       await client.query(
-        `INSERT INTO likes (user_id, target_type, targetId, ip_address, device_fingerprint, status, is_valid)
+        `INSERT INTO likes (user_id, target_type, target_id, ip_hash, device_fingerprint, status, risk_score)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-        [user.id, targetType, targetId, ip, deviceFingerprint || null, validation.status, validation.isValid]
+        [user.id, targetType, targetId, ip, deviceFingerprint || null, validation.status, validation.riskScore]
       );
 
       if (targetType === 'SONG') {
@@ -98,7 +100,8 @@ router.post('/like', async (req: Request, res: Response) => {
       client.release();
     }
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error('Like error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to process like.' });
   }
 });
 
@@ -116,7 +119,8 @@ router.get('/likes', async (req: Request, res: Response) => {
     );
     return res.status(200).json({ success: true, data: r.rows });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('Fetch likes error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to fetch likes.' });
   }
 });
 
@@ -129,16 +133,29 @@ router.post('/follow', async (req: Request, res: Response) => {
     const { artistId } = req.body;
     if (!artistId) return res.status(400).json({ success: false, message: 'artistId is required' });
 
-    const existing = await query('SELECT id FROM follows WHERE follower_id = $1 AND artist_id = $2', [user.id, artistId]);
+    // Schema: follows(follower_id, target_type, target_id). Following an artist
+    // is target_type = 'ARTIST'.
+    const existing = await query(
+      `SELECT id FROM follows WHERE follower_id = $1 AND target_type = 'ARTIST' AND target_id = $2`,
+      [user.id, artistId]
+    );
     if (existing.rows.length > 0) {
-      await query('DELETE FROM follows WHERE follower_id = $1 AND artist_id = $2', [user.id, artistId]);
+      await query(
+        `DELETE FROM follows WHERE follower_id = $1 AND target_type = 'ARTIST' AND target_id = $2`,
+        [user.id, artistId]
+      );
       return res.status(200).json({ success: true, action: 'UNFOLLOWED' });
     }
 
-    await query('INSERT INTO follows (follower_id, artist_id) VALUES ($1, $2)', [user.id, artistId]);
+    await query(
+      `INSERT INTO follows (follower_id, target_type, target_id) VALUES ($1, 'ARTIST', $2)
+       ON CONFLICT DO NOTHING`,
+      [user.id, artistId]
+    );
     return res.status(200).json({ success: true, action: 'FOLLOWED' });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('Follow error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update follow state.' });
   }
 });
 
@@ -148,17 +165,25 @@ router.get('/comments', async (req: Request, res: Response) => {
     const songId = req.query.songId as string;
     if (!songId) return res.status(400).json({ success: false, message: 'songId required' });
 
+    // Schema: comments(target_type, target_id, content). A song comment is
+    // target_type = 'SONG'. Return content explicitly (not SELECT *).
     const r = await query(
-      `SELECT c.*, u.full_name as "userName", u.username, u.avatar_url as "userAvatar"
+      `SELECT c.id, c.user_id as "userId", c.target_type as "targetType", c.target_id as "targetId",
+              c.content, c.created_at as "createdAt",
+              u.full_name as "userName", u.username, u.avatar_url as "userAvatar"
        FROM comments c JOIN users u ON c.user_id = u.id
-       WHERE c.song_id = $1 ORDER BY c.created_at DESC LIMIT 50`,
+       WHERE c.target_type = 'SONG' AND c.target_id = $1
+       ORDER BY c.created_at DESC LIMIT 50`,
       [songId]
     );
     return res.status(200).json({ success: true, data: r.rows });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('Fetch comments error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to fetch comments.' });
   }
 });
+
+const MAX_COMMENT_LENGTH = 2000;
 
 // POST /api/v1/social/comments
 router.post('/comments', async (req: Request, res: Response) => {
@@ -167,15 +192,31 @@ router.post('/comments', async (req: Request, res: Response) => {
     if (!user) return res.status(401).json({ success: false, message: 'Authentication required' });
 
     const { songId, text } = req.body;
-    if (!songId || !text) return res.status(400).json({ success: false, message: 'songId and text required' });
+    if (!songId || typeof text !== 'string' || !text.trim()) {
+      return res.status(400).json({ success: false, message: 'songId and non-empty text are required' });
+    }
+
+    // Server-side input validation: cap length and strip control characters.
+    // The stored content must always be treated as untrusted and HTML-escaped
+    // by every rendering surface (defense-in-depth against stored XSS).
+    const cleanText = text.trim().replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+    if (cleanText.length === 0) {
+      return res.status(400).json({ success: false, message: 'Comment text is required' });
+    }
+    if (cleanText.length > MAX_COMMENT_LENGTH) {
+      return res.status(400).json({ success: false, message: `Comment must be ${MAX_COMMENT_LENGTH} characters or fewer` });
+    }
 
     const r = await query(
-      `INSERT INTO comments (user_id, song_id, text) VALUES ($1, $2, $3) RETURNING *`,
-      [user.id, songId, text.trim()]
+      `INSERT INTO comments (user_id, target_type, target_id, content)
+       VALUES ($1, 'SONG', $2, $3)
+       RETURNING id, user_id as "userId", target_type as "targetType", target_id as "targetId", content, created_at as "createdAt"`,
+      [user.id, songId, cleanText]
     );
     return res.status(201).json({ success: true, data: r.rows[0] });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('Create comment error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to post comment.' });
   }
 });
 

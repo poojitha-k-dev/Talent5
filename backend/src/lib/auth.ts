@@ -94,7 +94,8 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
     (req as any).user = user;
     next();
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    console.error('Authentication middleware error:', err);
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Authentication failed.' } });
   }
 }
 

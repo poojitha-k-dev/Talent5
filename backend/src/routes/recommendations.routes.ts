@@ -85,7 +85,7 @@ router.get('/', async (req: Request, res: Response) => {
     console.error('Error computing recommendations:', err);
     return res.status(500).json({
       success: false,
-      error: { code: 'SERVER_ERROR', message: err.message },
+      error: { code: 'SERVER_ERROR', message: 'Failed to load recommendations.' },
     });
   }
 });

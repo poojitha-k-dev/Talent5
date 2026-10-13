@@ -179,7 +179,7 @@ router.post('/apply', async (req: Request, res: Response) => {
     }
   } catch (error: any) {
     console.error('Creator application error:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: 'Internal server error occurred.' });
   }
 });
 
@@ -236,7 +236,7 @@ router.get('/status', async (req: Request, res: Response) => {
       application: appRes.rows[0] || null,
     });
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: 'Internal server error occurred.' });
   }
 });
 
@@ -360,7 +360,7 @@ router.get('/studio/summary', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Studio summary error:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: 'Internal server error occurred.' });
   }
 });
 
@@ -396,7 +396,7 @@ router.get('/submissions', async (req: Request, res: Response) => {
       data: submissionsRes.rows,
     });
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: 'Internal server error occurred.' });
   }
 });
 
@@ -520,7 +520,7 @@ router.post('/submissions', async (req: Request, res: Response) => {
     }
   } catch (error: any) {
     console.error('Submission error:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: 'Internal server error occurred.' });
   }
 });
 

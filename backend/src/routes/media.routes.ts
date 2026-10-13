@@ -12,6 +12,45 @@ const DEFAULT_FALLBACK_URL =
 
 const inFlightDownloads = new Set<string>();
 
+// SSRF protection: the media proxy may only fetch from an explicit allowlist of
+// trusted public media hosts. This prevents the server from being coerced into
+// requesting internal/metadata endpoints (e.g. 169.254.169.254) or arbitrary
+// hosts. Extendable via MEDIA_FETCH_ALLOWED_HOSTS (comma-separated).
+const DEFAULT_ALLOWED_MEDIA_HOSTS = [
+  'archive.org',
+  'ia600905.us.archive.org',
+  'cdn.freesound.org',
+  'commondatastorage.googleapis.com',
+  'storage.googleapis.com',
+];
+const ALLOWED_MEDIA_HOSTS = new Set(
+  [
+    ...DEFAULT_ALLOWED_MEDIA_HOSTS,
+    ...((process.env.MEDIA_FETCH_ALLOWED_HOSTS || '').split(',')),
+  ]
+    .map((h) => h.trim().toLowerCase())
+    .filter((h) => h.length > 0)
+);
+
+/**
+ * Returns true only if the URL is https and its host is on the allowlist.
+ * A host must match exactly or be a subdomain of an allowlisted host.
+ */
+function isAllowedMediaUrl(rawUrl: string): boolean {
+  let u: URL;
+  try {
+    u = new URL(rawUrl);
+  } catch {
+    return false;
+  }
+  if (u.protocol !== 'https:') return false;
+  const host = u.hostname.toLowerCase();
+  for (const allowed of ALLOWED_MEDIA_HOSTS) {
+    if (host === allowed || host.endsWith(`.${allowed}`)) return true;
+  }
+  return false;
+}
+
 // GET /api/v1/media/stream/:key(*)
 router.get('/stream/:key(*)', async (req: Request, res: Response) => {
   try {
@@ -41,27 +80,35 @@ router.get('/stream/:key(*)', async (req: Request, res: Response) => {
         remoteUrl = DEFAULT_FALLBACK_URL;
       }
 
+      // SSRF guard: never fetch a URL that is not on the trusted allowlist.
+      // Fall back to the known-good default host instead.
+      if (!isAllowedMediaUrl(remoteUrl)) {
+        console.warn('[media] blocked non-allowlisted remote URL for key:', key);
+        remoteUrl = DEFAULT_FALLBACK_URL;
+      }
+
       const forwardHeaders: Record<string, string> = {};
       if (req.headers.range) {
         forwardHeaders['Range'] = req.headers.range;
       }
 
+      // 'redirect: manual' prevents following a redirect to an internal host.
       let remoteRes = await fetch(remoteUrl, {
         headers: forwardHeaders,
-        redirect: 'follow',
+        redirect: 'manual',
       });
 
       if (!remoteRes.ok && remoteRes.status !== 206) {
         remoteRes = await fetch(DEFAULT_FALLBACK_URL, {
           headers: forwardHeaders,
-          redirect: 'follow',
+          redirect: 'manual',
         });
       }
 
-      // Background download
+      // Background download (remoteUrl is already allowlist-validated above)
       if (!inFlightDownloads.has(key) && !req.headers.range) {
         inFlightDownloads.add(key);
-        fetch(remoteUrl, { redirect: 'follow' })
+        fetch(remoteUrl, { redirect: 'manual' })
           .then((r) => {
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             return r.arrayBuffer();
@@ -146,7 +193,7 @@ router.get('/stream/:key(*)', async (req: Request, res: Response) => {
     fileStream.pipe(res);
   } catch (err: any) {
     console.error('Streaming error:', err);
-    return res.status(500).json({ success: false, error: { code: 'STREAMING_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'STREAMING_ERROR', message: 'Failed to stream media.' } });
   }
 });
 
@@ -164,7 +211,8 @@ router.get('/upload-url', async (req: Request, res: Response) => {
     const ticket = await storage.generateUploadTicket(fileName, contentType, sizeBytes);
     return res.status(200).json({ success: true, data: ticket });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('Upload URL error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to generate upload URL.' });
   }
 });
 

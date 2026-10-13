@@ -24,10 +24,11 @@ router.get('/', async (req: Request, res: Response) => {
       tagline: 'Real Voices. Original Stories. Desi Talent.',
     });
   } catch (error: any) {
+    console.error('Health check error:', error);
     return res.status(500).json({
       success: false,
       status: 'DEGRADED',
-      error: error.message,
+      error: 'Database connectivity check failed.',
     });
   }
 });

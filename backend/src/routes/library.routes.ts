@@ -42,8 +42,8 @@ router.get('/', async (req: Request, res: Response) => {
         `SELECT a.id, a.name, a.slug, a.avatar_url as "avatarUrl", a.is_verified as "isVerified",
                 a.followers_count as "followersCount", f.created_at as "followedAt"
          FROM follows f
-         JOIN artists a ON f.artist_id = a.id
-         WHERE f.follower_id = $1
+         JOIN artists a ON f.target_id = a.id
+         WHERE f.follower_id = $1 AND f.target_type = 'ARTIST'
          ORDER BY f.created_at DESC`,
         [user.id]
       ),
@@ -71,7 +71,8 @@ router.get('/', async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('Library fetch error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load library.' });
   }
 });
 
@@ -93,7 +94,8 @@ router.post('/save', async (req: Request, res: Response) => {
     await query('INSERT INTO saved_songs (user_id, song_id) VALUES ($1, $2)', [user.id, songId]);
     return res.status(200).json({ success: true, action: 'SAVED' });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('Library save error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to update saved song.' });
   }
 });
 

@@ -65,7 +65,7 @@ router.get('/', async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: 'Failed to load leaderboard.' });
   }
 });
 

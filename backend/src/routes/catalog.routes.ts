@@ -112,7 +112,7 @@ router.get('/songs', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Songs query error:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: 'Failed to load catalog data.' });
   }
 });
 
@@ -234,7 +234,7 @@ router.get('/songs/:idOrSlug', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Song by id error:', error);
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: 'Failed to load catalog data.' });
   }
 });
 
@@ -261,7 +261,7 @@ router.get('/artists', async (req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=180');
     return res.status(200).json({ success: true, data });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: 'Failed to load catalog data.' });
   }
 });
 
@@ -287,7 +287,7 @@ router.get('/artists/:id', async (req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=180');
     return res.status(200).json({ success: true, data });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: 'Failed to load catalog data.' });
   }
 });
 
@@ -306,7 +306,7 @@ router.get('/albums', async (req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=180');
     return res.status(200).json({ success: true, data });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: 'Failed to load catalog data.' });
   }
 });
 
@@ -345,7 +345,7 @@ router.get('/albums/:id', async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: 'Failed to load catalog data.' });
   }
 });
 
@@ -361,7 +361,7 @@ router.get('/languages', async (_req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
     return res.status(200).json({ success: true, data });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: 'Failed to load catalog data.' });
   }
 });
 
@@ -377,7 +377,7 @@ router.get('/genres', async (_req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'public, max-age=300, stale-while-revalidate=600');
     return res.status(200).json({ success: true, data });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: 'Failed to load catalog data.' });
   }
 });
 
@@ -523,7 +523,7 @@ router.get('/home', async (_req: Request, res: Response) => {
       data,
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: 'Failed to load catalog data.' });
   }
 });
 
@@ -546,7 +546,7 @@ router.get('/new-talent', async (_req: Request, res: Response) => {
     res.setHeader('Cache-Control', 'public, max-age=30, stale-while-revalidate=120');
     return res.status(200).json({ success: true, data });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: 'Failed to load catalog data.' });
   }
 });
 

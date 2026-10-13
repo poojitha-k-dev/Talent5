@@ -23,7 +23,8 @@ router.get('/', async (_req: Request, res: Response) => {
     );
     return res.status(200).json({ success: true, data: playlistsRes.rows });
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error('List playlists error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to load playlists.' });
   }
 });
 
@@ -49,7 +50,8 @@ router.post('/', async (req: Request, res: Response) => {
 
     return res.status(201).json({ success: true, data: insertRes.rows[0] });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('Create playlist error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to create playlist.' });
   }
 });
 
@@ -57,11 +59,22 @@ router.post('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const playlistRes = await query(
-      `SELECT p.*, u.full_name as "curatorName"
+      `SELECT p.id, p.user_id as "userId", p.name, p.slug, p.description, p.cover_url as "coverUrl",
+              p.visibility, p.created_at as "createdAt", u.full_name as "curatorName"
        FROM playlists p JOIN users u ON p.user_id = u.id WHERE p.id = $1`,
       [req.params.id]
     );
     if (playlistRes.rows.length === 0) return res.status(404).json({ success: false, message: 'Playlist not found' });
+
+    // Access control: a PRIVATE playlist is only visible to its owner.
+    const playlistRow = playlistRes.rows[0];
+    if (playlistRow.visibility !== 'PUBLIC') {
+      const viewer = await getUserFromRequest(req);
+      if (!viewer || viewer.id !== playlistRow.userId) {
+        // Do not reveal existence of a private playlist to non-owners.
+        return res.status(404).json({ success: false, message: 'Playlist not found' });
+      }
+    }
 
     const songsRes = await query(
       `SELECT s.id, s.title, s.slug, s.duration_seconds as "durationSeconds",
@@ -88,7 +101,8 @@ router.get('/:id', async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('Fetch playlist error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to load playlist.' });
   }
 });
 
@@ -118,7 +132,8 @@ router.post('/:id/songs', async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, message: 'Song added to playlist' });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('Add song to playlist error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to add song to playlist.' });
   }
 });
 
@@ -146,7 +161,8 @@ router.delete('/:id', async (req: Request, res: Response) => {
     await query('DELETE FROM playlists WHERE id = $1', [req.params.id]);
     return res.status(200).json({ success: true, message: 'Playlist deleted successfully' });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('Delete playlist error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to delete playlist.' });
   }
 });
 

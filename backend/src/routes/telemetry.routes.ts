@@ -80,7 +80,7 @@ router.post('/play', async (req: Request, res: Response) => {
     console.error('Play telemetry error:', error);
     return res.status(500).json({
       success: false,
-      message: error.message || 'Telemetry recording failed.',
+      message: 'Telemetry recording failed.',
     });
   }
 });

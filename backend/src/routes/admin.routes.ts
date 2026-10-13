@@ -112,7 +112,7 @@ router.get('/stats', async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error('Stats error:', err);
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -238,7 +238,7 @@ router.get('/users', async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     console.error('Admin users error:', err);
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -252,8 +252,8 @@ router.post('/users', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Email, password, and full name are required.' } });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Password must be at least 6 characters long.' } });
+    if (typeof password !== 'string' || password.length < 8) {
+      return res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Password must be at least 8 characters long.' } });
     }
 
     const cleanEmail = email.trim().toLowerCase();
@@ -332,12 +332,12 @@ router.post('/users', async (req: Request, res: Response) => {
       client.release();
     }
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
-// PATCH /api/v1/admin/users
-router.patch('/users', async (req: Request, res: Response) => {
+// PATCH /api/v1/admin/users — shared handler (also used by /users/:id)
+const handleUpdateUser = async (req: Request, res: Response) => {
   const actor = (req as any).user;
   try {
     const { userId, fullName, email, username, phone, status, isVerified, roles, newPassword, notes } = req.body;
@@ -385,7 +385,7 @@ router.patch('/users', async (req: Request, res: Response) => {
 
       let passwordChanged = false;
       if (newPassword) {
-        if (newPassword.length < 6) throw new Error('New password must be at least 6 characters long.');
+        if (typeof newPassword !== 'string' || newPassword.length < 8) throw new Error('New password must be at least 8 characters long.');
         const pwHash = await hashPassword(newPassword);
         params.push(pwHash);
         updates.push(`password_hash = $${params.length}`);
@@ -446,12 +446,14 @@ router.patch('/users', async (req: Request, res: Response) => {
       client.release();
     }
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    console.error('Admin update user error:', err);
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to update user.' } });
   }
-});
+};
+router.patch('/users', handleUpdateUser);
 
-// DELETE /api/v1/admin/users
-router.delete('/users', async (req: Request, res: Response) => {
+// DELETE /api/v1/admin/users — shared handler (also used by /users/:id)
+const handleDeleteUser = async (req: Request, res: Response) => {
   const actor = (req as any).user;
   try {
     const userId = (req.query.userId as string) || req.body?.userId;
@@ -507,9 +509,11 @@ router.delete('/users', async (req: Request, res: Response) => {
       client.release();
     }
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    console.error('Admin delete user error:', err);
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to delete user.' } });
   }
-});
+};
+router.delete('/users', handleDeleteUser);
 
 // GET /api/v1/admin/users/:id
 router.get('/users/:id', async (req: Request, res: Response) => {
@@ -532,23 +536,23 @@ router.get('/users/:id', async (req: Request, res: Response) => {
     }
     return res.status(200).json({ success: true, data: userRes.rows[0] });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    console.error('Admin get user error:', err);
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Failed to fetch user.' } });
   }
 });
 
-// Single user PATCH /api/v1/admin/users/:id
+// Single user PATCH /api/v1/admin/users/:id — call the shared handler directly
+// (no router re-dispatch, which previously risked re-running middleware against
+// a cloned request and mismatched routing).
 router.patch('/users/:id', async (req: Request, res: Response) => {
-  req.body.userId = req.params.id;
-  // Delegate to PATCH /users
-  const fakeReq = { ...req, body: { ...req.body, userId: req.params.id } };
-  return (router as any).handle(fakeReq, res);
+  req.body = { ...req.body, userId: req.params.id };
+  return handleUpdateUser(req, res);
 });
 
-// Single user DELETE /api/v1/admin/users/:id
+// Single user DELETE /api/v1/admin/users/:id — call the shared handler directly
 router.delete('/users/:id', async (req: Request, res: Response) => {
-  req.query.userId = req.params.id;
-  const fakeReq = { ...req, query: { ...req.query, userId: req.params.id } };
-  return (router as any).handle(fakeReq, res);
+  req.query = { ...req.query, userId: req.params.id };
+  return handleDeleteUser(req, res);
 });
 
 // ==========================================
@@ -563,7 +567,7 @@ router.get('/settings', async (_req: Request, res: Response) => {
     });
     return res.status(200).json({ success: true, data: settingsMap });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -578,7 +582,7 @@ router.post('/settings', async (req: Request, res: Response) => {
     }
     return res.status(200).json({ success: true, message: 'Settings saved' });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -597,7 +601,7 @@ router.get('/rights', async (_req: Request, res: Response) => {
     `);
     return res.status(200).json({ success: true, data: r.rows });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -608,7 +612,7 @@ router.patch('/rights/:id', async (req: Request, res: Response) => {
     await query(`UPDATE rights_records SET status = $1, reviewer_id = $2, review_notes = $3, updated_at = NOW() WHERE id = $4`, [status, actor.id, notes, req.params.id]);
     return res.status(200).json({ success: true, message: 'Rights record updated' });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -623,7 +627,7 @@ router.get('/payouts', async (_req: Request, res: Response) => {
     `);
     return res.status(200).json({ success: true, data: r.rows });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -634,7 +638,7 @@ router.patch('/payouts/:id', async (req: Request, res: Response) => {
     await query(`UPDATE payout_requests SET status = $1, transaction_reference = $2, reviewed_by = $3, review_notes = $4, processed_at = NOW() WHERE id = $5`, [status, referenceId, actor.id, notes, req.params.id]);
     return res.status(200).json({ success: true, message: 'Payout updated' });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -693,7 +697,7 @@ router.get('/fraud', async (_req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -801,7 +805,7 @@ router.post('/fraud/action', async (req: Request, res: Response) => {
 
     return res.status(400).json({ success: false, error: { code: 'BAD_REQUEST', message: `Unknown action: ${action}` } });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -810,7 +814,7 @@ router.get('/audit-logs', async (_req: Request, res: Response) => {
     const r = await query(`SELECT a.*, u.email as "actorEmail", u.full_name as "actorName" FROM audit_logs a LEFT JOIN users u ON a.actor_id = u.id ORDER BY a.created_at DESC LIMIT 200`);
     return res.status(200).json({ success: true, data: r.rows });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -941,7 +945,7 @@ router.get('/applications', async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1009,7 +1013,7 @@ router.post('/applications/:id/scan', async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1099,7 +1103,7 @@ router.patch('/applications/:id', async (req: Request, res: Response) => {
       client.release();
     }
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1108,7 +1112,7 @@ router.get('/content-review', async (_req: Request, res: Response) => {
     const r = await query(`SELECT cs.*, u.email, u.full_name as "creatorName" FROM content_submissions cs JOIN users u ON cs.user_id = u.id ORDER BY cs.created_at DESC LIMIT 100`);
     return res.status(200).json({ success: true, data: r.rows });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1119,7 +1123,7 @@ router.patch('/content-review/:id', async (req: Request, res: Response) => {
     await query(`UPDATE content_submissions SET status = $1, reviewed_by = $2, review_notes = $3 WHERE id = $4`, [status, actor.id, notes, req.params.id]);
     return res.status(200).json({ success: true, message: 'Content review updated' });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1142,7 +1146,7 @@ router.get('/catalog/metadata', async (_req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1238,7 +1242,7 @@ router.get('/catalog/songs', async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1279,7 +1283,7 @@ router.post('/catalog/songs', async (req: Request, res: Response) => {
 
     return res.status(201).json({ success: true, message: 'Song created in catalog', data: r.rows[0] });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1334,7 +1338,7 @@ router.patch('/catalog/songs/:id', async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, message: 'Song updated successfully', data: updatedRes.rows[0] });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1358,7 +1362,7 @@ router.delete('/catalog/songs/:id', async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, message: 'Song removed from catalog' });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1382,7 +1386,7 @@ router.post('/catalog/songs/bulk-status', async (req: Request, res: Response) =>
     });
     return res.status(200).json({ success: true, message: `Successfully updated ${songIds.length} tracks to ${status}` });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1403,7 +1407,7 @@ router.post('/catalog/songs/bulk-delete', async (req: Request, res: Response) =>
     });
     return res.status(200).json({ success: true, message: `Successfully removed ${songIds.length} tracks from catalog` });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1580,7 +1584,7 @@ router.get('/plagiarism/overview', async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1623,7 +1627,7 @@ router.post('/plagiarism/resolve', async (req: Request, res: Response) => {
       message: `Conflict resolved with action: ${resolution}`,
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1688,7 +1692,7 @@ router.get('/lyrics/overview', async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1734,7 +1738,7 @@ router.get('/lyrics/song/:songId', async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1797,7 +1801,7 @@ router.put('/lyrics/song/:songId', async (req: Request, res: Response) => {
     return res.status(200).json({ success: true, message: 'Lyrics & timings updated successfully', data: { lyricsId } });
   } catch (err: any) {
     await client.query('ROLLBACK');
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   } finally {
     client.release();
   }
@@ -1820,7 +1824,7 @@ router.get('/competitions', async (_req: Request, res: Response) => {
     `);
     return res.status(200).json({ success: true, data: compRes.rows });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1861,7 +1865,7 @@ router.post('/competitions', async (req: Request, res: Response) => {
 
     return res.status(201).json({ success: true, message: 'Competition created successfully', data: r.rows[0] });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1898,7 +1902,7 @@ router.patch('/competitions/:id', async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, message: 'Competition updated', data: r.rows[0] });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1919,7 +1923,7 @@ router.get('/competitions/:id/entries', async (req: Request, res: Response) => {
     );
     return res.status(200).json({ success: true, data: entriesRes.rows });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -1951,7 +1955,7 @@ router.patch('/competitions/entries/:entryId', async (req: Request, res: Respons
 
     return res.status(200).json({ success: true, message: 'Entry updated', data: r.rows[0] });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2007,7 +2011,7 @@ router.get('/reports', async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2026,7 +2030,7 @@ router.post('/reports', async (req: Request, res: Response) => {
     );
     return res.status(201).json({ success: true, message: 'Report submitted', data: r.rows[0] });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2062,7 +2066,7 @@ router.patch('/reports/:id', async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, message: 'Report updated successfully' });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2100,7 +2104,7 @@ router.get('/wallets', async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2113,7 +2117,7 @@ router.get('/wallets/:id/transactions', async (req: Request, res: Response) => {
     );
     return res.status(200).json({ success: true, data: txRes.rows });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2179,7 +2183,7 @@ router.post('/wallets/:id/adjust', async (req: Request, res: Response) => {
     return res.status(200).json({ success: true, message: 'Wallet adjusted successfully', data: { newBalance } });
   } catch (err: any) {
     await client.query('ROLLBACK');
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   } finally {
     client.release();
   }
@@ -2190,7 +2194,7 @@ router.get('/reward-rules', async (_req: Request, res: Response) => {
     const rulesRes = await query(`SELECT * FROM reward_rules ORDER BY id DESC LIMIT 1`);
     return res.status(200).json({ success: true, data: rulesRes.rows[0] });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2219,7 +2223,7 @@ router.patch('/reward-rules', async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, message: 'Reward policy updated', data: r.rows[0] });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2239,7 +2243,7 @@ router.get('/curation/playlists', async (_req: Request, res: Response) => {
     `);
     return res.status(200).json({ success: true, data: r.rows });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2266,7 +2270,7 @@ router.post('/curation/playlists', async (req: Request, res: Response) => {
 
     return res.status(201).json({ success: true, message: 'Editorial playlist created', data: r.rows[0] });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2285,7 +2289,7 @@ router.post('/curation/playlists/:id/songs', async (req: Request, res: Response)
     );
     return res.status(200).json({ success: true, message: 'Song added to playlist' });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2295,7 +2299,7 @@ router.delete('/curation/playlists/:id/songs/:songId', async (req: Request, res:
     await query(`DELETE FROM playlist_songs WHERE playlist_id = $1 AND song_id = $2`, [id, songId]);
     return res.status(200).json({ success: true, message: 'Song removed from playlist' });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2314,7 +2318,7 @@ router.get('/broadcasts', async (_req: Request, res: Response) => {
     `);
     return res.status(200).json({ success: true, data: r.rows });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2368,7 +2372,7 @@ router.post('/broadcasts', async (req: Request, res: Response) => {
       data: { recipientsCount: recipientUserIds.length },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2400,7 +2404,7 @@ router.get('/team', async (_req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2431,7 +2435,7 @@ router.post('/team/assign-role', async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, message: `Role ${roleName} assigned successfully` });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 
@@ -2457,7 +2461,7 @@ router.post('/team/revoke-role', async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, message: `Role ${roleName} revoked successfully` });
   } catch (err: any) {
-    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: err.message } });
+    return res.status(500).json({ success: false, error: { code: 'SERVER_ERROR', message: 'Internal server error occurred.' } });
   }
 });
 

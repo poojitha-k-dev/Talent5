@@ -13,6 +13,7 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 // arbitrary email). It is OFF unless explicitly enabled AND never in production.
 const MOCK_AUTH_ENABLED = process.env.ENABLE_MOCK_AUTH === 'true' && !IS_PRODUCTION;
 const OAUTH_STATE_COOKIE = 'talent5_oauth_state';
+const MIN_PASSWORD_LENGTH = 8;
 
 /**
  * Returns a safe, same-origin relative redirect path. Rejects absolute URLs
@@ -99,7 +100,7 @@ router.post('/login', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Login error:', error);
-    return res.status(500).json({ success: false, message: error.message || 'Internal server error' });
+    return res.status(500).json({ success: false, message: 'Internal server error' });
   }
 });
 
@@ -112,8 +113,8 @@ router.post('/register', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Email, password, and full name are required' });
     }
 
-    if (password.length < 6) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    if (typeof password !== 'string' || password.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({ success: false, message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters long` });
     }
 
     const cleanEmail = email.trim().toLowerCase();
@@ -178,7 +179,7 @@ router.post('/register', async (req: Request, res: Response) => {
     }
   } catch (error: any) {
     console.error('Registration error:', error);
-    return res.status(500).json({ success: false, message: error.message || 'Failed to create account' });
+    return res.status(500).json({ success: false, message: 'Failed to create account' });
   }
 });
 
@@ -191,7 +192,8 @@ router.get('/me', async (req: Request, res: Response) => {
     }
     return res.status(200).json({ success: true, data: { user } });
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error('Fetch current user error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to fetch user.' });
   }
 });
 
@@ -277,7 +279,7 @@ router.get('/profile-summary', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Profile summary error:', error);
-    return res.status(500).json({ success: false, message: error.message || 'Failed to fetch profile summary' });
+    return res.status(500).json({ success: false, message: 'Failed to fetch profile summary' });
   }
 });
 
@@ -334,7 +336,7 @@ router.put('/me', async (req: Request, res: Response) => {
     return res.status(200).json({ success: true, message: 'Profile updated successfully', data: { user: updatedUser } });
   } catch (error: any) {
     console.error('Update profile error:', error);
-    return res.status(500).json({ success: false, message: error.message || 'Failed to update profile' });
+    return res.status(500).json({ success: false, message: 'Failed to update profile' });
   }
 });
 
@@ -347,8 +349,8 @@ router.post('/change-password', async (req: Request, res: Response) => {
     }
 
     const { currentPassword, newPassword } = req.body;
-    if (!newPassword || newPassword.length < 6) {
-      return res.status(400).json({ success: false, message: 'New password must be at least 6 characters long' });
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({ success: false, message: `New password must be at least ${MIN_PASSWORD_LENGTH} characters long` });
     }
 
     const userRes = await query('SELECT password_hash FROM users WHERE id = $1', [user.id]);
@@ -370,7 +372,7 @@ router.post('/change-password', async (req: Request, res: Response) => {
     return res.status(200).json({ success: true, message: 'Password changed successfully' });
   } catch (error: any) {
     console.error('Change password error:', error);
-    return res.status(500).json({ success: false, message: error.message || 'Failed to change password' });
+    return res.status(500).json({ success: false, message: 'Failed to change password' });
   }
 });
 
@@ -399,7 +401,8 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     }
 
     const user = userRes.rows[0];
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    // Use a cryptographically secure RNG for the OTP (Math.random is predictable).
+    const otp = crypto.randomInt(100000, 1000000).toString();
     const otpHash = await hashPassword(otp);
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
@@ -429,7 +432,8 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       devOtp: process.env.EXPOSE_DEV_OTP === 'true' && !IS_PRODUCTION ? otp : undefined,
     });
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error('Forgot password error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to process request.' });
   }
 });
 
@@ -440,8 +444,8 @@ router.post('/reset-password', async (req: Request, res: Response) => {
     if (!email || !code || !newPassword) {
       return res.status(400).json({ success: false, message: 'Email, code, and new password are required' });
     }
-    if (newPassword.length < 6) {
-      return res.status(400).json({ success: false, message: 'Password must be at least 6 characters long' });
+    if (typeof newPassword !== 'string' || newPassword.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({ success: false, message: `Password must be at least ${MIN_PASSWORD_LENGTH} characters long` });
     }
 
     const cleanEmail = email.trim().toLowerCase();
@@ -476,7 +480,8 @@ router.post('/reset-password', async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, message: 'Password reset successfully' });
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error('Reset password error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to reset password.' });
   }
 });
 

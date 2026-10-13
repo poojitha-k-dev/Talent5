@@ -45,7 +45,8 @@ router.get('/:songId', async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error('Lyrics error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to load lyrics.' });
   }
 });
 

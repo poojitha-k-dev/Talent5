@@ -53,7 +53,7 @@ router.post('/ticket', async (req: Request, res: Response) => {
       success: false,
       error: {
         code: 'UPLOAD_TICKET_ERROR',
-        message: err.message || 'Failed to generate secure upload ticket.',
+        message: 'Failed to generate secure upload ticket.',
       },
     });
   }

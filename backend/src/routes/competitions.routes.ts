@@ -19,7 +19,8 @@ router.get('/', async (_req: Request, res: Response) => {
     );
     return res.status(200).json({ success: true, data: compsRes.rows });
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error('List competitions error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to load competitions.' });
   }
 });
 
@@ -64,7 +65,8 @@ router.get('/:id', async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, data: { competition, entries: entriesRes.rows } });
   } catch (error: any) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error('Fetch competition error:', error);
+    return res.status(500).json({ success: false, message: 'Failed to load competition.' });
   }
 });
 
@@ -87,7 +89,8 @@ router.post('/:id/vote', async (req: Request, res: Response) => {
 
     return res.status(200).json({ success: true, message: 'Vote recorded' });
   } catch (err: any) {
-    return res.status(500).json({ success: false, message: err.message });
+    console.error('Competition vote error:', err);
+    return res.status(500).json({ success: false, message: 'Failed to record vote.' });
   }
 });
 
