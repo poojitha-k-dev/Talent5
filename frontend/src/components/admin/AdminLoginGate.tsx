@@ -60,8 +60,10 @@ function AdminLoginGateInternal() {
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const fillDemoAdmin = () => {
+    // Autofill only the admin email. The password must be entered manually and
+    // is never hardcoded in client source.
     setEmail('admin@talent5.com');
-    setPassword('Talent5Admin2026!');
+    setPassword('');
     setError(null);
   };
 
@@ -259,10 +261,10 @@ function AdminLoginGateInternal() {
                 type="button"
                 onClick={fillDemoAdmin}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 text-[10px] font-mono transition-all cursor-pointer"
-                title="Autofill default admin credentials"
+                title="Autofill admin email (enter password manually)"
               >
                 <Zap className="w-3 h-3 text-amber-400" />
-                <span>Autofill Admin</span>
+                <span>Autofill Email</span>
               </button>
             </div>
 

@@ -60,27 +60,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  // Quick Demo Logins for Pair Programming & Testing
-  const quickLogin = async (demoEmail: string, demoPass: string) => {
+  // Quick demo: prefill the demo account email only. Passwords are never
+  // hardcoded in client source; the user enters the demo password manually.
+  const quickLogin = (demoEmail: string) => {
     setEmail(demoEmail);
-    setPassword(demoPass);
+    setPassword('');
     setError(null);
-    setLoading(true);
-    try {
-      const res = await fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: demoEmail, password: demoPass }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message);
-      login(data.data.token, data.data.user);
-      onClose();
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
   };
 
   return (
@@ -199,7 +184,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => quickLogin('creator@talent5.com', 'Talent5Creator2026!')}
+              onClick={() => quickLogin('creator@talent5.com')}
               className="flex items-center justify-center gap-1.5 p-2 bg-teal-500/10 hover:bg-teal-500/20 border border-teal-500/30 rounded-xl text-teal-300 text-xs font-medium transition-all"
             >
               <Sparkles className="w-3.5 h-3.5" />
@@ -207,7 +192,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </button>
             <button
               type="button"
-              onClick={() => quickLogin('listener@talent5.com', 'Talent5Listener2026!')}
+              onClick={() => quickLogin('listener@talent5.com')}
               className="flex items-center justify-center gap-1.5 p-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-xl text-amber-300 text-xs font-medium transition-all"
             >
               <User className="w-3.5 h-3.5" />

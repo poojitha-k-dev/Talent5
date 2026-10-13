@@ -96,7 +96,7 @@ const DEMO_PROFILES: DemoProfile[] = [
     badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
     icon: Headphones,
     email: 'listener@talent5.com',
-    pass: 'Talent5Listener2026!',
+    pass: '',
     description: 'Explore Desi tracks, like songs, build playlists & follow artists.',
   },
   {
@@ -107,7 +107,7 @@ const DEMO_PROFILES: DemoProfile[] = [
     badgeColor: 'bg-teal-500/20 text-teal-300 border-teal-500/30',
     icon: Sparkles,
     email: 'creator@talent5.com',
-    pass: 'Talent5Creator2026!',
+    pass: '',
     description: 'Upload tracks, manage rights, track valid likes & earn rewards.',
   },
   {
@@ -118,7 +118,7 @@ const DEMO_PROFILES: DemoProfile[] = [
     badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
     icon: Shield,
     email: 'admin@talent5.com',
-    pass: 'Talent5Admin2026!',
+    pass: '',
     description: 'Manage creator auditions, rights catalog, payouts & fraud cockpit.',
   },
 ];
@@ -272,8 +272,8 @@ function LoginForm() {
       setForgotError('Please fill in both password fields.');
       return;
     }
-    if (newPassword.length < 6) {
-      setForgotError('New password must be at least 6 characters long.');
+    if (newPassword.length < 8) {
+      setForgotError('New password must be at least 8 characters long.');
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -379,31 +379,13 @@ function LoginForm() {
   };
 
   const handleSelectDemo = (profile: DemoProfile, autoSubmit: boolean = false) => {
+    // Prefill the demo email only. Passwords are never shipped in client source;
+    // the user must enter the demo password manually. autoSubmit is intentionally
+    // a no-op now that there is no hardcoded credential to submit.
     setSelectedDemo(profile.id);
     setEmail(profile.email);
-    setPassword(profile.pass);
+    setPassword('');
     setError(null);
-
-    if (autoSubmit) {
-      setLoading(true);
-      fetch('/api/v1/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: profile.email, password: profile.pass }),
-      })
-        .then((res) => res.json())
-        .then((data) => {
-          if (!data.success) throw new Error(data.message);
-          login(data.data.token, data.data.user);
-          if (profile.role === 'ADMIN') {
-            router.push('/admin');
-          } else {
-            router.push(redirectPath);
-          }
-        })
-        .catch((err) => setError(err.message))
-        .finally(() => setLoading(false));
-    }
   };
 
   const inpStyles: React.CSSProperties = {

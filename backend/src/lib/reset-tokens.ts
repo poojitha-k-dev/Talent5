@@ -40,7 +40,8 @@ export function createResetToken(email: string, baseUrl?: string): {
   }
 
   const token = crypto.randomBytes(32).toString('hex');
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  // Use a cryptographically secure RNG for the verification code.
+  const code = crypto.randomInt(100000, 1000000).toString();
   const expiresAt = Date.now() + 60 * 60 * 1000; // 1 hour TTL
 
   const entry: ResetEntry = {
@@ -113,5 +114,9 @@ export function verifyResetCode(email: string, code: string): boolean {
     return false;
   }
 
-  return entry.code === code.trim();
+  // Constant-time comparison to avoid timing side-channels on the code.
+  const expected = Buffer.from(entry.code, 'utf8');
+  const provided = Buffer.from(code.trim(), 'utf8');
+  if (expected.length !== provided.length) return false;
+  return crypto.timingSafeEqual(expected, provided);
 }
