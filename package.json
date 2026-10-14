@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "talent5",
   "version": "1.0.0",
   "private": true,
@@ -27,7 +27,7 @@
   },
   "devDependencies": {
     "concurrently": "^8.2.2",
-    "prisma": "^8.0.0",
+    "prisma": "^6.19.3",
     "typescript": "^5.6.3"
   }
 }
